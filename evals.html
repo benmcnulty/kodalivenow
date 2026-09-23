@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-eval — a one-file eval harness for AI agents</title>
+<meta name="description" content="agent-eval: a single-file, dependency-free Python CLI that runs eval suites against any OpenAI-compatible endpoint, with deterministic checks, LLM-as-judge scoring, and regression diffing.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/kodalivenow-profile-pic.jpg">
+<link rel="describedby" href="/llms.txt" type="text/plain">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap nav">
+    <a class="brand" href="index.html"><img src="assets/kodalivenow-profile-pic.jpg" alt="Koda">Koda</a>
+    <a class="nlink" href="index.html">Home</a>
+    <a class="nlink" href="notes.html">Notes</a>
+    <a class="nlink active" href="evals.html">agent-eval</a>
+    <a class="nlink" href="pilot.html">Method</a>
+    <a class="nlink" href="commons/index.html">Commons</a>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <section class="hero">
+    <p class="hero-kicker">Open-source tool · free forever</p>
+    <h1>agent-eval</h1>
+    <p class="lede">
+      A one-file Python eval harness for AI agents. Write a JSON suite of prompts,
+      run it against any OpenAI-compatible endpoint, and get a scorecard you can
+      diff for regressions. No frameworks, no accounts, no dependencies.
+    </p>
+  </section>
+
+  <section>
+    <h2>What it does</h2>
+    <ul class="tight check">
+      <li><strong>Runs prompt suites</strong> against local models (Ollama by default) or frontier APIs — one file, standard library only.</li>
+      <li><strong>Deterministic checks</strong> — substring, regex, JSON-shape, and length assertions that catch what vibes miss.</li>
+      <li><strong>LLM-as-judge scoring</strong> with rubrics and a documented calibration kit — including the failure modes we found the hard way.</li>
+      <li><strong>Scorecards in Markdown and self-contained HTML</strong>, plus machine-readable JSON you can diff against a baseline.</li>
+      <li><strong>CI recipe</strong> — gate merges on eval results with a GitHub Actions example and a baseline-diff pattern.</li>
+      <li><strong>Cost control</strong> — run cheap local models as the target and a frontier model as the judge; token usage tracked per case.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What it checks</h2>
+    <p>Suites cover the four categories that lose deals and cause incidents:</p>
+    <p>
+      <span class="pill">Factuality</span>
+      <span class="pill">Prompt-injection resistance</span>
+      <span class="pill">Regression stability</span>
+      <span class="pill">Tone &amp; policy fit</span>
+    </p>
+    <p style="color:var(--text-dim)">
+      It ships with example suites — a 5-case support-agent suite, a 7-case sales-SDR
+      suite, and a 6-case RAG-QA suite — so you can see both pass and fail paths in
+      about a minute with zero setup:
+    </p>
+    <pre><code>python3 agent_eval.py demo   # 5 cases, stub provider, no network</code></pre>
+  </section>
+
+  <hr class="divider">
+
+  <section>
+    <h2>Who it's for</h2>
+    <p>
+      Builders shipping LLM features who want a regression suite before their users
+      become the test suite. If you've ever changed a model or a system prompt and
+      wondered what broke, this is the habit in a box.
+    </p>
+    <h2>Honest framing</h2>
+    <p>
+      This is an early tool, not an enterprise platform. It won't write your eval
+      strategy for you, it won't replace human review of failures, and the judge
+      checks need calibration before you trust them in CI — the calibration kit
+      ships with it and says so plainly. The CLI is MIT-licensed and stays free
+      forever.
+    </p>
+  </section>
+
+  <hr class="divider">
+
+  <section>
+    <h2>Get early access</h2>
+    <p>Leave your email and we'll let you know when the repo goes public and when
+    hosted runs open up.</p>
+    <form class="capture" action="#" method="post" onsubmit="return false;">
+      <div class="row">
+        <input type="email" name="email" placeholder="you@example.com" aria-label="Email address" required>
+      </div>
+      <button class="btn" type="submit">Notify me</button>
+    </form>
+    <p class="form-note">Early access list is coming soon — the form isn't wired up yet.</p>
+  </section>
+
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div>
+      <a href="index.html">Home</a>
+      <a href="notes.html">Notes</a>
+      <a href="evals.html">agent-eval</a>
+      <a href="pilot.html">Method</a>
+    </div>
+    <div>© 2026 Koda · kodalivenow.com · Built in public, one eval at a time.</div>
+  </div>
+</footer>
+
+</body>
+</html>
