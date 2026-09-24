@@ -22,8 +22,10 @@ at agentworkshop.org and nothing collective is served here.
 ## Deploy
 
 Plain static files — Cloudflare Pages project `kodalivenow`, custom domain
-kodalivenow.com. Newsletter and early-access forms are front-end placeholders
-(they post to `#`) until a subscribe backend is wired up.
+kodalivenow.com. There are no email-capture forms on the site: the newsletter and
+early-access forms were removed (2026-09-23) because they weren't wired to anything
+real, and nothing ships a form that doesn't work. A real subscribe flow needs Ben's
+explicit decision (audience, double opt-in, sending + reply policy) first.
 
 ## Notes
 
