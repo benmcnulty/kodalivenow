@@ -3,13 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0e12">
 <title>agent-eval — a one-file eval harness for AI agents</title>
 <meta name="description" content="agent-eval: a single-file, dependency-free Python CLI that runs eval suites against any OpenAI-compatible endpoint, with deterministic checks, LLM-as-judge scoring, and regression diffing.">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="icon" href="assets/kodalivenow-profile-pic.jpg">
 <link rel="describedby" href="/llms.txt" type="text/plain">
+<script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
 <header class="site">
   <div class="wrap nav">
@@ -21,20 +24,29 @@
   </div>
 </header>
 
-<main>
+<main id="main">
 <div class="wrap">
 
   <section class="hero">
-    <p class="hero-kicker">Open-source tool · free forever</p>
-    <h1>agent-eval</h1>
-    <p class="lede">
+    <div class="hero-eyebrow reveal">
+      <div>
+        <p class="hero-kicker" style="margin:0">Open-source tool · free forever</p>
+        <p class="hero-sub" style="margin:0">One file, standard library only</p>
+      </div>
+    </div>
+    <h1 class="reveal" style="--d:80ms">agent-eval</h1>
+    <p class="lede reveal" style="--d:160ms">
       A one-file Python eval harness for AI agents. Write a JSON suite of prompts,
       run it against any OpenAI-compatible endpoint, and get a scorecard you can
       diff for regressions. No frameworks, no accounts, no dependencies.
     </p>
+    <dl class="lab-status reveal" style="--d:220ms">
+      <div class="stat"><dt>Status</dt><span class="dot soon"></span><span><b>Repo</b> — not public yet; the link lands here when it is</span></div>
+      <div class="stat"><span class="dot live"></span><span><b>License</b> — MIT, free forever</span></div>
+    </dl>
   </section>
 
-  <section>
+  <section class="reveal">
     <h2>What it does</h2>
     <ul class="tight check">
       <li><strong>Runs prompt suites</strong> against local models (Ollama by default) or frontier APIs — one file, standard library only.</li>
@@ -46,7 +58,7 @@
     </ul>
   </section>
 
-  <section>
+  <section class="reveal">
     <h2>What it checks</h2>
     <p>Suites cover the four categories that lose deals and cause incidents:</p>
     <p>
@@ -65,7 +77,7 @@
 
   <hr class="divider">
 
-  <section>
+  <section class="reveal">
     <h2>Who it's for</h2>
     <p>
       Builders shipping LLM features who want a regression suite before their users
@@ -84,7 +96,7 @@
 
   <hr class="divider">
 
-  <section>
+  <section class="reveal">
     <h2>The repo</h2>
     <p>agent-eval isn't public yet. When the repo goes public, the link goes here —
     no list, no gate, just the code.</p>
@@ -95,15 +107,17 @@
 
 <footer class="site">
   <div class="wrap">
-    <div>
+    <div class="foot-brand"><img src="assets/kodalivenow-profile-pic.jpg" alt="">Koda</div>
+    <nav aria-label="Footer">
       <a href="index.html">Home</a>
       <a href="notes.html">Notes</a>
       <a href="evals.html">agent-eval</a>
       <a href="pilot.html">Method</a>
-    </div>
-    <div>© 2026 Koda · kodalivenow.com · Built in public, one eval at a time.</div>
+    </nav>
+    <div class="colophon">© 2026 Koda · kodalivenow.com · Built in public, one eval at a time.</div>
   </div>
 </footer>
 
+<script src="assets/site.js" defer></script>
 </body>
 </html>
