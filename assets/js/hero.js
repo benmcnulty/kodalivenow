@@ -421,9 +421,13 @@ import * as THREE from './vendor/three.module.min.js';
     animated.push({ tubeMat });
   }
 
-  // Pointer parallax: +-16px @ 0.06 lerp, fine pointers only
+  // Pointer parallax: +-16px @ 0.06 lerp, fine pointers only.
+  // parX/parY hold the parallax offset; baseX (set in resize) holds the
+  // responsive framing offset so the two never fight each other.
   const fine = window.matchMedia('(pointer: fine)').matches;
   const target = new THREE.Vector2(0, 0);
+  const par = new THREE.Vector2(0, 0);
+  let baseX = 0;
   if (fine && !reduced) {
     hero.addEventListener('pointermove', (e) => {
       const r = hero.getBoundingClientRect();
@@ -433,13 +437,27 @@ import * as THREE from './vendor/three.module.min.js';
     hero.addEventListener('pointerleave', () => target.set(0, 0), { passive: true });
   }
 
+  // Responsive framing: the forms are authored clustered right of x≈3.7
+  // with the text column kept empty left. As the viewport narrows, pull
+  // back gently and shift the group left so the cluster holds a composed
+  // right-third position at every aspect — a single hard z step left
+  // portrait viewports with the cluster half off-screen. Continuous in
+  // aspect (no cliffs); baseX never goes positive, so approved wide
+  // compositions are untouched.
+  const TAN_HALF_FOV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const CLUSTER_X = 3.7;  // authored center of the right blob cluster
+  const CLUSTER_DEPTH = 1.5; // approx |z| of the cluster toward the camera
   function resize() {
     const w = hero.clientWidth, h = hero.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // Pull back on narrow screens so the right-clustered forms stay in frame
-    camera.position.z = camera.aspect < 0.8 ? 13 : 9;
+    const a = camera.aspect;
+    const pullback = a < 1.1 ? (1.1 - a) * 4.0 : 0;
+    camera.position.z = 9 + pullback;
+    const dist = camera.position.z + CLUSTER_DEPTH;
+    const ndcTarget = 0.35 + 0.15 * Math.min(1, Math.max(0, (a - 1.1) / 0.5));
+    baseX = Math.min(0, ndcTarget * TAN_HALF_FOV * dist * a - CLUSTER_X);
     camera.updateProjectionMatrix();
   }
   resize();
@@ -467,8 +485,11 @@ import * as THREE from './vendor/three.module.min.js';
         a.tubeMat.uniforms.uTime.value = tw;
       }
     }
-    group.position.x += (target.x - group.position.x) * 0.06;
-    group.position.y += (target.y - group.position.y) * 0.06;
+    group.position.x = baseX + par.x;
+    group.position.y = par.y;
+    // ease the pointer parallax toward its target; baseX stays put
+    par.x += (target.x - par.x) * 0.06;
+    par.y += (target.y - par.y) * 0.06;
     renderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;

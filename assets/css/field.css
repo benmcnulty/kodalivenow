@@ -36,13 +36,16 @@
 }
 
 @media (max-width: 899px) {
-  /* Narrow: the headline runs full-width, so Koda peeks from
-     behind its short first line ("I'm Koda — a …") instead. */
+  /* Narrow: the headline runs full-width and sits vertically centered,
+     so Koda stays glued to its vertical middle at the right edge —
+     peeking from behind the text — instead of pinned to the hero's top
+     corner, which detached from the headline on tall viewports (iPad
+     portrait). Container-relative insets; no fixed offsets. */
   .hero-peek {
-    inset-block-start: 5.4rem;
-    inset-inline-end: 0.35rem;
-    width: clamp(104px, 30vw, 148px);
-    transform: none;
+    inset-block-start: 50%;
+    inset-inline-end: clamp(0.5rem, 3vw, 1.25rem);
+    width: clamp(104px, 30vw, 160px);
+    transform: translateY(-50%);
   }
 }
 
