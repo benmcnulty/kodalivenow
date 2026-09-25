@@ -1,0 +1,1519 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050508" />
+  <meta name="color-scheme" content="dark" />
+  <title>Kaleidoscope &mdash; Koda&rsquo;s Code</title>
+  <meta name="description" content="An animated jewel-glass kaleidoscope &mdash; pick a style and a palette, and watch it unfold. Runs entirely in your browser." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Koda" />
+  <meta property="og:title" content="Kaleidoscope &mdash; Koda&rsquo;s Code" />
+  <meta property="og:description" content="An animated jewel-glass kaleidoscope &mdash; pick a style and a palette, and watch it unfold. Runs entirely in your browser." />
+  <meta property="og:image" content="https://kodalivenow.com/assets/img/og-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg" />
+  <link rel="preload" href="../../assets/fonts/clash-display-600.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="../../assets/css/main.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-type.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-glass.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-icons.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-motion.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+
+    :root {
+      color-scheme: dark;
+      --k-ink: #f7f4ee;
+      --k-muted: rgba(247, 244, 238, 0.64);
+      --k-glass: rgba(10, 12, 18, 0.68);
+      --k-glass-strong: rgba(8, 10, 16, 0.88);
+      --k-line: rgba(255, 255, 255, 0.17);
+      --k-sheen: rgba(255, 255, 255, 0.12);
+      --k-accent: #b7f98b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body {
+      margin: 0;
+      background: #050508;
+      color: var(--k-ink);
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 60px);
+      height: calc(100dvh - 60px);
+      margin-top: 60px;
+      isolation: isolate;
+      overflow: hidden;
+      background: #050508;
+      font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+    }
+    canvas.dragging { cursor: grabbing; }
+
+    .noise {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.2;
+      mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.24'/%3E%3C/svg%3E");
+    }
+
+    .glass-button {
+      border: 1px solid var(--k-line);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.025) 42%),
+        rgba(8, 10, 16, 0.58);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.18),
+        0 12px 36px rgba(0,0,0,.28);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
+      backdrop-filter: blur(22px) saturate(150%);
+    }
+
+    .pause-button,
+    .audio-button {
+      position: absolute;
+      z-index: 8;
+      top: max(14px, env(safe-area-inset-top));
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+    }
+    .pause-button { right: max(14px, env(safe-area-inset-right)); }
+    .audio-button { left: max(14px, env(safe-area-inset-left)); }
+    .pause-button:active,
+    .audio-button:active { transform: scale(.96); }
+    .pause-button:hover,
+    .audio-button:hover { border-color: rgba(255,255,255,.34); }
+    .pause-button svg,
+    .audio-button svg { width: 20px; height: 20px; }
+    .pause-button .play-icon { display: none; }
+    .pause-button[aria-pressed="true"] .pause-icon { display: none; }
+    .pause-button[aria-pressed="true"] .play-icon { display: block; margin-left: 2px; }
+    .audio-button[aria-pressed="true"] {
+      border-color: rgba(183,249,139,.58);
+      background:
+        linear-gradient(145deg, rgba(183,249,139,.2), rgba(255,255,255,.025) 44%),
+        rgba(8, 10, 16, 0.66);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 4px rgba(183,249,139,.08), 0 12px 36px rgba(0,0,0,.28);
+    }
+    .audio-button.listening svg { animation: audioPulse 1.45s ease-in-out infinite; }
+
+    .audio-menu {
+      position: absolute;
+      z-index: 7;
+      top: calc(max(14px, env(safe-area-inset-top)) + 58px);
+      left: max(14px, env(safe-area-inset-left));
+      width: min(330px, calc(100vw - 28px));
+      padding: 16px;
+      border: 1px solid var(--k-line);
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at 15% -10%, rgba(183,249,139,.13), transparent 42%),
+        linear-gradient(150deg, rgba(20,26,36,.82), rgba(6,8,13,.93));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 22px 64px rgba(0,0,0,.42);
+      -webkit-backdrop-filter: blur(28px) saturate(145%);
+      backdrop-filter: blur(28px) saturate(145%);
+      transform: translateY(-8px) scale(.98);
+      transform-origin: top left;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(.22,.75,.18,1), visibility 0s linear 220ms;
+    }
+    .audio-menu.open {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition-delay: 0s;
+    }
+    .audio-menu h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+    .audio-menu > p { margin: 5px 0 13px; color: var(--k-muted); font-size: 11px; line-height: 1.45; }
+    .audio-sources { display: grid; gap: 8px; }
+    .audio-source {
+      width: 100%;
+      min-height: 49px;
+      display: grid;
+      grid-template-columns: 32px minmax(0,1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px;
+      background: rgba(255,255,255,.055);
+      text-align: left;
+      cursor: pointer;
+    }
+    .audio-source:hover:not(:disabled) { background: rgba(255,255,255,.095); border-color: rgba(255,255,255,.22); }
+    .audio-source:disabled { opacity: .46; cursor: default; }
+    .audio-source.active { border-color: rgba(183,249,139,.34); background: rgba(183,249,139,.09); }
+    .audio-source svg { width: 22px; height: 22px; color: rgba(255,255,255,.84); }
+    .audio-source strong { display: block; font-size: 12px; font-weight: 600; }
+    .audio-source small { display: block; margin-top: 2px; color: var(--k-muted); font-size: 10px; line-height: 1.25; }
+    .source-state { color: var(--k-muted); font-size: 10px; }
+    .audio-meter {
+      height: 3px;
+      margin-top: 12px;
+      overflow: hidden;
+      border-radius: 3px;
+      background: rgba(255,255,255,.08);
+    }
+    .audio-meter span {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #4ad7c8, #b7f98b, #f4bc64);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 80ms linear;
+    }
+    .audio-status { min-height: 15px; margin-top: 8px; color: rgba(247,244,238,.58); font-size: 10px; line-height: 1.4; }
+
+    @keyframes audioPulse {
+      0%, 100% { transform: scale(.94); opacity: .72; }
+      50% { transform: scale(1.08); opacity: 1; }
+    }
+
+    .drawer {
+      position: absolute;
+      z-index: 6;
+      left: 50%;
+      bottom: 0;
+      width: min(680px, calc(100vw - 24px));
+      transform: translate(-50%, 100%);
+      transition: transform 420ms cubic-bezier(.22,.75,.18,1);
+      padding: 24px 22px max(20px, env(safe-area-inset-bottom));
+      border: 1px solid var(--k-line);
+      border-bottom: 0;
+      border-radius: 26px 26px 0 0;
+      background:
+        radial-gradient(circle at 50% -20%, rgba(255,255,255,.18), transparent 52%),
+        linear-gradient(155deg, rgba(20, 26, 36, .76), rgba(6, 8, 13, .88));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.16),
+        0 -24px 70px rgba(0,0,0,.4);
+      -webkit-backdrop-filter: blur(30px) saturate(145%);
+      backdrop-filter: blur(30px) saturate(145%);
+    }
+    .drawer.open { transform: translate(-50%, 0); }
+
+    .tool-tab {
+      position: absolute;
+      top: -46px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 66px;
+      height: 47px;
+      padding: 0 0 3px;
+      border-radius: 18px 18px 0 0;
+      border-bottom: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+    .tool-tab::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 6px;
+      width: 22px;
+      height: 2px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.28);
+      transform: translateX(-50%);
+    }
+    .tool-tab svg { width: 22px; height: 22px; transform: translateY(-2px); }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .mode {
+      min-width: 0;
+    }
+    .mode strong {
+      display: block;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .mode span {
+      display: block;
+      margin-top: 3px;
+      color: var(--k-muted);
+      font-size: 12px;
+    }
+
+    .prism-mark {
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+    }
+    .prism-mark svg { width: 24px; height: 24px; }
+    .prism-mark .rosette-icon,
+    .prism-mark .vortex-icon { display: none; }
+    .prism-mark[data-style="rosette"] .prism-icon,
+    .prism-mark[data-style="vortex"] .prism-icon { display: none; }
+    .prism-mark[data-style="rosette"] .rosette-icon,
+    .prism-mark[data-style="vortex"] .vortex-icon { display: block; }
+
+    .preset-switch {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 5px;
+      margin-bottom: 12px;
+      padding: 4px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 15px;
+      background: rgba(0,0,0,.2);
+    }
+    .preset-option {
+      min-width: 0;
+      border: 0;
+      border-radius: 11px;
+      padding: 9px 12px;
+      background: transparent;
+      color: var(--k-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    }
+    .preset-option[aria-pressed="true"] {
+      color: var(--k-ink);
+      background: rgba(255,255,255,.105);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.11), 0 5px 18px rgba(0,0,0,.16);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .control {
+      min-width: 0;
+      padding: 14px 14px 12px;
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 16px;
+      background: rgba(255,255,255,.045);
+    }
+    .control-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .control label { color: rgba(255,255,255,.82); font-size: 12px; font-weight: 500; }
+    .value { color: var(--k-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+    input[type="range"] {
+      width: 100%;
+      height: 18px;
+      margin: 0;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 3px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, rgba(183,249,139,.82), rgba(91,160,255,.72), rgba(184,138,232,.76));
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 17px;
+      height: 17px;
+      margin-top: -7px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.86);
+      background: rgba(16,20,27,.94);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.08);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 3px;
+      border: 0;
+      border-radius: 2px;
+      background: linear-gradient(90deg, rgba(183,249,139,.82), rgba(91,160,255,.72), rgba(184,138,232,.76));
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.86);
+      background: rgba(16,20,27,.94);
+    }
+
+    .drawer-foot {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 18px;
+      margin-top: 16px;
+    }
+    .palette-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: rgba(255,255,255,.82);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .palette-name { color: var(--k-muted); font-size: 11px; font-weight: 400; }
+    .palette-options {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .palette-option {
+      position: relative;
+      width: 39px;
+      height: 39px;
+      padding: 4px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 13px;
+      background: rgba(255,255,255,.04);
+      cursor: pointer;
+      transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
+    }
+    .palette-option::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 9px;
+      background: var(--palette);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,.28);
+    }
+    .palette-option:hover { border-color: rgba(255,255,255,.32); }
+    .palette-option:active { transform: scale(.96); }
+    .palette-option[aria-pressed="true"] {
+      border-color: rgba(255,255,255,.72);
+      background: rgba(255,255,255,.12);
+      box-shadow: 0 0 0 2px rgba(183,249,139,.18);
+    }
+    .drawer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .motion-toggle,
+    .reset {
+      min-height: 39px;
+      border: 1px solid rgba(255,255,255,.1);
+      padding: 7px 10px;
+      border-radius: 11px;
+      background: rgba(255,255,255,.065);
+      color: rgba(255,255,255,.74);
+      font-size: 11px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .motion-toggle[aria-pressed="true"] {
+      color: var(--k-ink);
+      border-color: rgba(183,249,139,.32);
+      background: rgba(183,249,139,.1);
+    }
+    .motion-toggle:disabled { cursor: default; opacity: .48; }
+    .motion-toggle:hover:not(:disabled), .reset:hover { color: white; background: rgba(255,255,255,.11); }
+    .interaction-note {
+      margin: 10px 0 0;
+      color: rgba(247,244,238,.5);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .status {
+      position: absolute;
+      z-index: 4;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 28px;
+      text-align: center;
+      background: #060608;
+    }
+    .status.visible { display: grid; }
+    .status p { max-width: 32ch; margin: 0; color: var(--k-muted); line-height: 1.5; }
+
+    :focus-visible {
+      outline: 2px solid var(--k-accent);
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 600px) {
+      .pause-button, .audio-button { width: 46px; height: 46px; }
+      .audio-menu { top: calc(max(14px, env(safe-area-inset-top)) + 56px); }
+      .drawer {
+        width: calc(100vw - 16px);
+        padding: 19px 14px max(16px, env(safe-area-inset-bottom));
+        border-radius: 22px 22px 0 0;
+      }
+      .drawer-head { margin-bottom: 13px; }
+      .controls { grid-template-columns: 1fr; gap: 7px; }
+      .control {
+        padding: 10px 12px 9px;
+        display: grid;
+        grid-template-columns: 88px minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
+        border-radius: 13px;
+      }
+      .control-top { display: block; margin: 0; }
+      .value { display: block; margin-top: 2px; }
+      .preset-switch { margin-bottom: 9px; }
+      .preset-option { padding: 8px 9px; }
+      .drawer-foot {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+        gap: 11px;
+        margin-top: 12px;
+      }
+      .palette-options { justify-content: space-between; gap: 6px; }
+      .palette-option { width: 38px; height: 38px; }
+      .drawer-actions { justify-content: space-between; }
+      .motion-toggle { flex: 1; }
+      .interaction-note { margin-top: 8px; }
+    }
+
+    @media (max-height: 560px) and (orientation: landscape) {
+      .drawer { padding-top: 13px; padding-bottom: max(11px, env(safe-area-inset-bottom)); }
+      .drawer-head { margin-bottom: 8px; }
+      .preset-switch { margin-bottom: 8px; }
+      .control { padding-top: 9px; padding-bottom: 8px; }
+      .drawer-foot { margin-top: 9px; }
+      .interaction-note { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .drawer, .pause-button, .audio-button, .audio-menu { transition: none; }
+      .audio-button.listening svg { animation: none; }
+    }
+  </style>
+  <style>
+    /* ---- kodalivenow.com integration ---- */
+    /* The stage sits below the fixed 60px site header, already clear of the
+       notch: the app's own top safe-area offsets would double-count it on
+       notched phones, so they collapse to a plain inset here. Side and
+       bottom insets are untouched. */
+    .stage .pause-button,
+    .stage .audio-button { top: 14px; }
+    .stage .audio-menu { top: 72px; }
+    /* Explicit back-to-/code/ affordance floating over the artwork. */
+    .k-back {
+      position: absolute; z-index: 9;
+      top: 14px; left: 50%; transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: .45rem;
+      font-family: "Inter", system-ui, sans-serif;
+      font-size: .85rem; font-weight: 600;
+      color: var(--text); text-decoration: none; white-space: nowrap;
+      background: rgba(20,16,29,.62);
+      border: 1px solid rgba(233,230,241,.14);
+      border-radius: 999px; padding: .5rem 1rem;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .k-back:hover { color: var(--teal); }
+    .k-back svg { width: 1rem; height: 1rem; }
+    /* No-JS honesty: the app cannot run without JavaScript/WebGL2. */
+    .k-noscript {
+      position: absolute; inset: 0; z-index: 5;
+      display: grid; place-items: center; text-align: center; padding: 2rem;
+    }
+    .k-noscript p { color: var(--text); line-height: 1.6; max-width: 30ch; }
+    .k-noscript a { color: var(--teal); }
+    @media (prefers-reduced-motion: reduce) {
+      .k-back { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#stage">Skip to content</a>
+<header class="site-header">
+  <nav class="nav" aria-label="Primary">
+    <a class="brand" href="../../" aria-label="Koda &mdash; home">
+      <img src="../../assets/img/curl-mark.svg" alt="" width="30" height="30" />
+      <span>Koda</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="../../">Home</a></li>
+      <li><a href="../../about/">About</a></li>
+      <li><a href="../../now/">Now</a></li>
+      <li><a href="../../code/" aria-current="page">Code</a></li>
+    </ul>
+  </nav>
+</header>
+  <main class="stage" id="stage" aria-label="Animated jewel-glass kaleidoscope">
+  <a class="k-back" href="../" aria-label="Back to Koda's Code">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+    <span>Koda&rsquo;s Code</span>
+  </a>
+  <noscript>
+    <div class="k-noscript">
+      <p>Kaleidoscope needs JavaScript and WebGL2 to run. <a href="../">Back to Koda&rsquo;s Code</a></p>
+    </div>
+  </noscript>
+
+    <canvas id="view" aria-hidden="true"></canvas>
+    <div class="noise" aria-hidden="true"></div>
+
+    <button class="audio-button glass-button" id="audioButton" type="button" aria-label="Open audio reaction controls" aria-expanded="false" aria-controls="audioMenu" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.3 18.2V6.4l8-1.7v11.1M9.3 10l8-1.7M9.3 18.2c0 1.2-1.3 2.2-2.9 2.2s-2.9-1-2.9-2.2S4.8 16 6.4 16s2.9 1 2.9 2.2Zm8-2.4c0 1.2-1.3 2.2-2.9 2.2s-2.9-1-2.9-2.2 1.3-2.2 2.9-2.2 2.9 1 2.9 2.2Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <aside class="audio-menu" id="audioMenu" aria-label="Audio reaction" aria-hidden="true">
+      <h2>Audio reaction</h2>
+      <p>Let rhythm shape the drift, light and glass detail. Audio stays on this device.</p>
+      <div class="audio-sources">
+        <button class="audio-source" id="micSource" type="button" data-audio-source="microphone">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.5 10.5V6.8a3.5 3.5 0 0 1 7 0v3.7a3.5 3.5 0 0 1-7 0Z" stroke="currentColor" stroke-width="1.7"/><path d="M5.7 10.2v.5a6.3 6.3 0 0 0 12.6 0v-.5M12 17v3M9 20h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <span><strong>Microphone</strong><small>Ambient sound and nearby music</small></span>
+          <span class="source-state" id="micState">Start</span>
+        </button>
+        <button class="audio-source" id="systemSource" type="button" data-audio-source="system">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 20h8M12 15.5V20M7.5 10.2h2l1.2-2.3 2.1 4.3 1.2-2h2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>Tab or system audio</strong><small>Choose a shared tab or screen with audio</small></span>
+          <span class="source-state" id="systemState">Start</span>
+        </button>
+      </div>
+      <div class="audio-meter" aria-hidden="true"><span id="audioMeter"></span></div>
+      <div class="audio-status" id="audioStatus" role="status" aria-live="polite">Select a source to begin.</div>
+    </aside>
+
+    <button class="pause-button glass-button" id="pause" type="button" aria-label="Pause animation" aria-pressed="false">
+      <svg class="pause-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6v12M16 6v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <svg class="play-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" fill="currentColor"/></svg>
+    </button>
+
+    <section class="drawer" id="drawer" aria-label="Kaleidoscope controls">
+      <button class="tool-tab glass-button" id="toolTab" type="button" aria-label="Open controls" aria-expanded="false" aria-controls="drawer">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.4 7.2V5.8a3.6 3.6 0 0 1 7.2 0v1.4M5.2 8.4h13.6c.7 0 1.2.5 1.2 1.2v7.9c0 .7-.5 1.2-1.2 1.2H5.2c-.7 0-1.2-.5-1.2-1.2V9.6c0-.7.5-1.2 1.2-1.2Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 13h16M10 12.2v1.6h4v-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+      <div class="drawer-head">
+        <div class="mode">
+          <strong id="modeName">Classic prism</strong>
+          <span id="modeDescription">60° chamber · six axes · twelve mirrored cells</span>
+        </div>
+        <div class="prism-mark" id="prismMark" data-style="classic" aria-hidden="true">
+          <svg class="prism-icon" viewBox="0 0 28 28" fill="none"><path d="m14 3 10 18H4L14 3Z" stroke="rgba(255,255,255,.78)" stroke-width="1.4"/><path d="M14 3v18M4 21l15-9M24 21 9-9" stroke="rgba(183,249,139,.74)" stroke-width="1.2"/></svg>
+          <svg class="rosette-icon" viewBox="0 0 28 28" fill="none"><path d="M14 3.5c2.2 3.4 3.6 3.8 7.5 2.7-.9 3.9-.2 5.1 3.4 7-3.6 1.8-4.3 3.1-3.4 7-3.9-1.1-5.3-.6-7.5 2.7-2.2-3.3-3.6-3.8-7.5-2.7.9-3.9.2-5.2-3.4-7 3.6-1.9 4.3-3.1 3.4-7 3.9 1.1 5.3.7 7.5-2.7Z" stroke="rgba(255,255,255,.8)" stroke-width="1.25"/><circle cx="14" cy="13.2" r="3.1" stroke="rgba(183,249,139,.74)" stroke-width="1.2"/></svg>
+          <svg class="vortex-icon" viewBox="0 0 28 28" fill="none"><path d="M14 4.2c5.8 0 9.8 4.2 9.8 9.1 0 5.7-5 10.2-10.4 10.2-4.8 0-8.7-3.3-8.7-7.6 0-4.7 4.1-8.4 8.6-8.4 3.7 0 6.7 2.5 6.7 5.8 0 3.4-3 6.1-6.2 6.1-2.6 0-4.7-1.8-4.7-4.1 0-2.2 1.9-4 4-4 1.5 0 2.7 1 2.7 2.3" stroke="rgba(255,255,255,.8)" stroke-width="1.35" stroke-linecap="round"/><circle cx="15.8" cy="13.7" r="1.2" fill="rgba(183,249,139,.74)"/></svg>
+        </div>
+      </div>
+
+      <div id="drawerControls" inert>
+      <div class="preset-switch" role="group" aria-label="Kaleidoscope style">
+        <button class="preset-option" type="button" data-style="classic" aria-pressed="true">Classic prism</button>
+        <button class="preset-option" type="button" data-style="rosette" aria-pressed="false">Rose window</button>
+        <button class="preset-option" type="button" data-style="vortex" aria-pressed="false">Infinity well</button>
+      </div>
+      <div class="controls">
+        <div class="control">
+          <div class="control-top"><label for="focus">Focus</label><span class="value" id="focusValue">1.00×</span></div>
+          <input id="focus" data-setting="zoom" aria-label="Focus" type="range" min="0.72" max="1.70" step="0.01" value="1.00" />
+        </div>
+        <div class="control">
+          <div class="control-top"><label for="drift">Drift</label><span class="value" id="driftValue">0.58×</span></div>
+          <input id="drift" data-setting="speed" aria-label="Drift" type="range" min="0.10" max="1.45" step="0.01" value="0.58" />
+        </div>
+        <div class="control">
+          <div class="control-top"><label for="light">Light</label><span class="value" id="lightValue">1.08×</span></div>
+          <input id="light" data-setting="glow" aria-label="Light" type="range" min="0.62" max="1.45" step="0.01" value="1.08" />
+        </div>
+      </div>
+
+      <div class="drawer-foot">
+        <div class="palette-control">
+          <div class="palette-head"><span>Palette</span><span class="palette-name" id="paletteName">Cathedral jewel</span></div>
+          <div class="palette-options" id="paletteOptions" role="group" aria-label="Color palette">
+            <button class="palette-option" type="button" data-palette="cathedral" aria-label="Cathedral jewel palette" aria-pressed="true" style="--palette:conic-gradient(#C1121F,#FFBA08,#00A86B,#0F52BA,#7209B7,#C1121F)"></button>
+            <button class="palette-option" type="button" data-palette="tidepool" aria-label="Tidepool palette" aria-pressed="false" style="--palette:conic-gradient(#052F5F,#087F8C,#20BF9F,#42E2B8,#4169E1,#8C6FF7,#052F5F)"></button>
+            <button class="palette-option" type="button" data-palette="solar" aria-label="Solar ember palette" aria-pressed="false" style="--palette:conic-gradient(#7A1025,#D52941,#F26419,#F6AE2D,#2E86AB,#FCECC9,#7A1025)"></button>
+            <button class="palette-option" type="button" data-palette="orchid" aria-label="Orchid night palette" aria-pressed="false" style="--palette:conic-gradient(#24135F,#355CDE,#7A48E8,#BE4BDB,#EE5AA7,#52D6E8,#24135F)"></button>
+            <button class="palette-option" type="button" data-palette="verdant" aria-label="Verdant glass palette" aria-pressed="false" style="--palette:conic-gradient(#123C2E,#087F5B,#0BA6A6,#8BD450,#F2B134,#59A5D8,#123C2E)"></button>
+          </div>
+        </div>
+        <div class="drawer-actions">
+          <button class="motion-toggle" id="motion" type="button" aria-pressed="false" disabled>Checking tilt…</button>
+          <button class="reset" id="reset" type="button">Reset</button>
+        </div>
+      </div>
+      <p class="interaction-note">Drag anywhere to reposition the glass. Your composition stays put when released; dragging turns tilt off.</p>
+      </div>
+    </section>
+
+    <div class="status" id="status" role="status"><p>WebGL 2 is required to render the kaleidoscope on this device.</p></div>
+  </main>
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <div class="footer-brand">
+        <img src="../../assets/img/curl-mark.svg" alt="" width="34" height="34" />
+        <span>Koda</span>
+      </div>
+      <div class="footer-icons">
+        <a href="https://www.threads.com/@kodalivenow" aria-label="Koda on Threads" rel="me"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.263 11.097c-.03-3.486-1.92-5.586-5.111-5.586-2.13 0-3.922.963-4.863 2.499l2.062 1.438c.535-.843 1.272-1.543 2.628-1.543 1.528 0 2.318.85 2.544 2.431a15 15 0 0 0-2.236-.173c-4.125 0-6.068 1.867-6.068 4.336s1.943 3.99 4.804 3.99c3.139 0 5.013-2.115 5.781-4.735.798.361 1.348 1.204 1.348 2.47 0 3.387-3.907 5.232-7.22 5.232-4.885 0-8.077-3.207-8.077-8.424 0-6.392 4.223-10.487 9.9-10.487 3.808 0 5.69 1.671 6.97 3.914l2.108-1.475C21.44 2.078 18.331 0 13.663 0 6.227 0 1.168 5.277 1.168 12.934c0 7 4.953 11.066 10.856 11.066 4.878 0 9.809-2.846 9.809-7.716 0-2.545-1.46-4.231-3.569-5.187m-6.33 4.855c-1.077 0-2.026-.512-2.026-1.453 0-1.483 1.822-1.934 3.606-1.934.678 0 1.34.045 1.927.173-.422 1.927-1.671 3.215-3.508 3.214Z"/></svg></a>
+        <a href="https://www.instagram.com/kodalivenow" aria-label="Koda on Instagram" rel="me"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg></a>
+      </div>
+      <p class="footer-handle">@kodalivenow on Threads &amp; Instagram</p>
+    </div>
+    <div class="footer-meta">
+      <p>&copy; 2026 Koda</p>
+      <p class="footer-colophon">Designed, written, and built by me.</p>
+    </div>
+  </div>
+</footer>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const canvas = document.getElementById('view');
+      const status = document.getElementById('status');
+      const pauseButton = document.getElementById('pause');
+      const audioButton = document.getElementById('audioButton');
+      const audioMenu = document.getElementById('audioMenu');
+      const micSourceButton = document.getElementById('micSource');
+      const systemSourceButton = document.getElementById('systemSource');
+      const micState = document.getElementById('micState');
+      const systemState = document.getElementById('systemState');
+      const audioStatus = document.getElementById('audioStatus');
+      const audioMeter = document.getElementById('audioMeter');
+      const drawer = document.getElementById('drawer');
+      const drawerControls = document.getElementById('drawerControls');
+      const toolTab = document.getElementById('toolTab');
+      const resetButton = document.getElementById('reset');
+      const motionButton = document.getElementById('motion');
+      const paletteName = document.getElementById('paletteName');
+      const modeName = document.getElementById('modeName');
+      const modeDescription = document.getElementById('modeDescription');
+      const prismMark = document.getElementById('prismMark');
+      const stage = document.getElementById('stage');
+
+      const defaults = Object.freeze({ zoom: 1, speed: 0.58, glow: 1.08, palette: 'cathedral', style: 'classic' });
+      const settings = { ...defaults };
+      const palettes = Object.freeze({
+        cathedral: { name: 'Cathedral jewel', colors: ['#C1121F', '#E85D04', '#FFBA08', '#00A86B', '#0F52BA', '#7209B7', '#F5F0E6'] },
+        tidepool: { name: 'Tidepool', colors: ['#052F5F', '#087F8C', '#20BF9F', '#42E2B8', '#4169E1', '#8C6FF7', '#E6FFF7'] },
+        solar: { name: 'Solar ember', colors: ['#7A1025', '#D52941', '#F26419', '#F6AE2D', '#2E86AB', '#A7D8F0', '#FCECC9'] },
+        orchid: { name: 'Orchid night', colors: ['#24135F', '#355CDE', '#7A48E8', '#BE4BDB', '#EE5AA7', '#52D6E8', '#F4E9FF'] },
+        verdant: { name: 'Verdant glass', colors: ['#123C2E', '#087F5B', '#0BA6A6', '#8BD450', '#F2B134', '#59A5D8', '#F4F1DE'] }
+      });
+      const styles = Object.freeze({
+        classic: { name: 'Classic prism', description: '60° chamber · six axes · twelve mirrored cells', weights: [1, 0, 0] },
+        rosette: { name: 'Rose window', description: '36° twin-mirror fold · ten reflected petals', weights: [0, 1, 0] },
+        vortex: { name: 'Infinity well', description: 'Circular inversion · eight mirrored chambers', weights: [0, 0, 1] }
+      });
+      let paused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let elapsed = 0;
+      let lastFrame = performance.now();
+      let frameId = 0;
+      let gl, program, vao;
+      let uniforms = {};
+      const styleCurrent = new Float32Array([1, 0, 0]);
+      const styleTarget = new Float32Array([1, 0, 0]);
+      let paletteCurrent = new Float32Array(21);
+      let paletteTarget = new Float32Array(21);
+      let pointerActive = false;
+      let pointerId = null;
+      const pointerStart = { x: 0, y: 0 };
+      const pointerOrigin = { x: 0, y: 0 };
+      const dragTarget = { x: 0, y: 0 };
+      const settledInput = { x: 0, y: 0 };
+      const displayInput = { x: 0, y: 0 };
+      const composedInput = { x: 0, y: 0 };
+      const motionTarget = { x: 0, y: 0 };
+      let motionBaseline = null;
+      let motionListening = false;
+      let motionEnabled = false;
+      let motionReceived = false;
+      let audioContext = null;
+      let audioStream = null;
+      let audioSourceNode = null;
+      let analyser = null;
+      let frequencyData = null;
+      let activeAudioSource = null;
+      const audioReactive = { low: 0, mid: 0, high: 0, energy: 0 };
+      const audioVisual = { low: 0, mid: 0, high: 0, energy: 0 };
+
+      function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+
+      function hexToLinear(hex) {
+        return [1, 3, 5].map(index => {
+          const value = parseInt(hex.slice(index, index + 2), 16) / 255;
+          return value <= .04045 ? value / 12.92 : Math.pow((value + .055) / 1.055, 2.4);
+        });
+      }
+
+      function paletteFloats(id) {
+        return new Float32Array(palettes[id].colors.flatMap(hexToLinear));
+      }
+
+      paletteCurrent = paletteFloats(defaults.palette);
+      paletteTarget = paletteFloats(defaults.palette);
+
+      const vertexSource = `#version 300 es
+        in vec2 aPosition;
+        void main() {
+          gl_Position = vec4(aPosition, 0.0, 1.0);
+        }
+      `;
+
+      const fragmentSource = `#version 300 es
+        precision highp float;
+        uniform vec2 uResolution;
+        uniform float uTime;
+        uniform float uZoom;
+        uniform float uGlow;
+        uniform vec3 uStyleWeights;
+        uniform vec2 uInput;
+        uniform vec4 uAudio;
+        uniform vec3 uPalette[7];
+        out vec4 outColor;
+
+        #define PI 3.141592653589793
+        #define TAU 6.283185307179586
+
+        float hash21(vec2 p) {
+          p = fract(p * vec2(123.34, 456.21));
+          p += dot(p, p + 45.32);
+          return fract(p.x * p.y);
+        }
+
+        mat2 rotate2d(float a) {
+          float s = sin(a), c = cos(a);
+          return mat2(c, -s, s, c);
+        }
+
+        vec3 jewel(float h) {
+          h = fract(h);
+          if (h < .1428) return uPalette[0];
+          if (h < .2856) return uPalette[1];
+          if (h < .4284) return uPalette[2];
+          if (h < .5712) return uPalette[3];
+          if (h < .7140) return uPalette[4];
+          if (h < .8568) return uPalette[5];
+          return uPalette[6];
+        }
+
+        float roundedBox(vec2 p, vec2 b, float r) {
+          vec2 q = abs(p) - b + r;
+          return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+        }
+
+        vec4 glassLayer(vec2 p, float scale, vec2 drift, float seed) {
+          vec2 grid = p * scale + drift;
+          vec2 id = floor(grid);
+          vec2 f = fract(grid) - .5;
+          float n = hash21(id + seed);
+          float n2 = hash21(id.yx + seed * 2.73);
+          float n3 = hash21(id + seed * 7.19 + 13.7);
+          f = rotate2d((n - .5) * 2.4 + .18 * sin(uTime * .12 + n3 * TAU)) * f;
+
+          vec2 sz = vec2(mix(.18, .39, n2), mix(.16, .36, n3));
+          float dCircle = length(f / sz) - 1.0;
+          float dDiamond = abs(f.x) / sz.x + abs(f.y) / sz.y - 1.0;
+          float dBox = roundedBox(f, sz * .72, min(sz.x, sz.y) * .32);
+          float selector = fract(n * 7.13);
+          float d = selector < .34 ? dCircle : (selector < .68 ? dDiamond : dBox);
+
+          float body = smoothstep(.045, -.025, d);
+          float border = smoothstep(.055, .008, abs(d));
+          float inner = smoothstep(-.20, -.015, d);
+          vec3 color = jewel(fract(n * 1.71 + seed * .113));
+
+          float directional = .72 + .36 * dot(normalize(vec2(.65, .76)), normalize(f + vec2(.03)));
+          float caustic = pow(max(0.0, 1.0 - length((f - vec2(-.12, .14)) / max(sz, .08))), 8.0);
+          float glint = pow(max(0.0, 1.0 - length((f - vec2(.11, -.09)) / max(sz * .42, .05))), 18.0);
+
+          vec3 lit = color * (directional + .22 * inner);
+          lit += color * caustic * 1.15 + vec3(1.0, .96, .84) * glint * .72;
+          lit *= body;
+          lit *= 1.0 - border * .58;
+          return vec4(lit, body * mix(.58, .88, n2));
+        }
+
+        void main() {
+          vec2 p = (gl_FragCoord.xy * 2.0 - uResolution.xy) / min(uResolution.x, uResolution.y);
+          // Layer several slow, incommensurate motions so the instrument keeps
+          // evolving without feeling mechanical or repeating on a short loop.
+          float t = uTime;
+          float breathe = 1.0 + .038 * sin(t * .17) + .016 * sin(t * .43 + 1.2) + uAudio.x * .055;
+          p *= uZoom * breathe;
+          float radius = length(p);
+          float angle = atan(p.y, p.x);
+          angle += .052 * sin(t * .13) + .021 * sin(t * .31 + 1.7) + .009 * sin(t * .71);
+          angle += .012 * t + uAudio.x * .035 * sin(t * 1.7 + radius * 3.0);
+
+          // Classic: the 60-degree three-mirror prism fold.
+          float classicSector = PI / 3.0;
+          float classicWrapped = mod(angle + PI, classicSector);
+          float classicFolded = abs(classicWrapped - classicSector * .5);
+          vec2 classicSource = vec2(cos(classicFolded), sin(classicFolded)) * radius;
+
+          // Rose window: a 36-degree two-mirror rosette with ten reflected petals.
+          float roseSector = TAU / 10.0;
+          float roseWrapped = mod(angle + PI, roseSector);
+          float roseFolded = abs(roseWrapped - roseSector * .5);
+          float roseRadius = radius * (.91 + .08 * sin(radius * 8.5 - uTime * .13));
+          vec2 roseSource = vec2(cos(roseFolded), sin(roseFolded)) * roseRadius;
+          roseSource = rotate2d(.13 * sin(radius * 4.8 + uTime * .07)) * roseSource;
+
+          // Infinity well: circular inversion feeds a log-polar tunnel into an
+          // eight-way mirror fold, creating depth unlike either planar preset.
+          vec2 inverted = p / max(dot(p, p), .035);
+          float tunnelAngle = atan(inverted.y, inverted.x) + .12 * sin(log(length(inverted) + .01) * 2.4 - t * .17);
+          float tunnelSector = TAU / 8.0;
+          float tunnelWrapped = mod(tunnelAngle + PI, tunnelSector);
+          float tunnelFolded = abs(tunnelWrapped - tunnelSector * .5);
+          float tunnelBand = fract(log(length(inverted) + .01) * .38 - t * .025);
+          float tunnelRadius = mix(.22, 1.08, tunnelBand);
+          vec2 tunnelSource = vec2(cos(tunnelFolded), sin(tunnelFolded)) * tunnelRadius;
+          tunnelSource += vec2(.08 * sin(tunnelBand * TAU), .05 * cos(tunnelBand * TAU));
+
+          vec3 styleWeights = max(uStyleWeights, vec3(0.0));
+          styleWeights /= max(dot(styleWeights, vec3(1.0)), .001);
+          vec2 source = classicSource * styleWeights.x + roseSource * styleWeights.y + tunnelSource * styleWeights.z;
+          vec2 autonomousDrift = vec2(
+            .16 * sin(t * .23) + .065 * sin(t * .61 + 1.3),
+            .13 * cos(t * .19 + .4) + .055 * cos(t * .47 - .8)
+          );
+          source = rotate2d(.043 * sin(t * .29) + .017 * cos(t * .67)) * source;
+          source += autonomousDrift + uInput * .48;
+          source.x += (.035 + uAudio.y * .028) * sin(radius * 9.0 - t * .17);
+          float wrapped = classicWrapped * styleWeights.x + roseWrapped * styleWeights.y + tunnelWrapped * styleWeights.z;
+          float sector = classicSector * styleWeights.x + roseSector * styleWeights.y + tunnelSector * styleWeights.z;
+
+          vec2 driftA = vec2(
+            .42 * sin(t * .17) + .09 * sin(t * .53 + .5),
+            -.34 * cos(t * .13 + .8) + .08 * sin(t * .41)
+          );
+          vec2 driftB = vec2(
+            -.31 * sin(t * .11 + 1.6) + .10 * cos(t * .37),
+            .39 * sin(t * .15 + .2) + .07 * cos(t * .59)
+          );
+          vec2 driftC = vec2(
+            .27 * cos(t * .14 - .7) + .08 * sin(t * .49),
+            .30 * sin(t * .12 + 2.1) + .09 * cos(t * .33)
+          );
+
+          vec3 color = vec3(.0038, .0038, .0078);
+          vec4 a = glassLayer(source, 2.55, driftA, 1.7);
+          color = mix(color, a.rgb + color * .38, a.a);
+          vec4 b = glassLayer(source * rotate2d(.36), 3.75, driftB, 8.1);
+          color = mix(color, b.rgb + color * .32, b.a * .80);
+          vec4 c = glassLayer(source * rotate2d(-.48), 5.45, driftC, 19.3);
+          color = mix(color, c.rgb + color * .24, c.a * .66);
+
+          // Fine suspended specks in the chamber.
+          vec2 sp = source * 12.0 + vec2(.05*uTime, -.09*uTime);
+          vec2 sid = floor(sp);
+          vec2 sf = fract(sp) - .5;
+          float sn = hash21(sid + 44.0);
+          float sparkle = smoothstep(.105, .015, length(sf - vec2(sn-.5, fract(sn*5.7)-.5)*.38));
+          sparkle *= step(mix(.79, .70, uAudio.z), sn);
+          color += jewel(sn) * sparkle * (.52 + uAudio.z * .35) + vec3(1.0) * pow(sparkle, 5.0) * (.72 + uAudio.z * .42);
+
+          // Subtle dark mirror leading: seams are continuous, never bright.
+          float seamDistance = min(wrapped, sector - wrapped) * max(radius, .08);
+          float seam = 1.0 - smoothstep(.002, .010, seamDistance);
+          color *= 1.0 - seam * .30;
+
+          // A small luminous hub, as in a well-lit physical instrument.
+          float hub = exp(-radius * 28.0);
+          color += vec3(1.0, .83, .52) * hub * .92;
+
+          float vignette = smoothstep(1.72, .30, radius);
+          color *= mix(.48, 1.0, vignette);
+          color *= uGlow * (1.0 + uAudio.w * .24 + uAudio.z * .08);
+          color = 1.0 - exp(-color * 1.42);
+          color = pow(color, vec3(.92));
+
+          // Tiny final-stage dither to break dark gradient bands.
+          float d1 = hash21(gl_FragCoord.xy + fract(uTime) * 61.7);
+          float d2 = hash21(gl_FragCoord.yx + 91.3);
+          color += (d1 + d2 - 1.0) / 255.0;
+
+          outColor = vec4(color, 1.0);
+        }
+      `;
+
+      function setStatus(visible, message) {
+        if (message) status.querySelector('p').textContent = message;
+        status.classList.toggle('visible', visible);
+      }
+
+      function compile(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const message = gl.getShaderInfoLog(shader) || 'Shader compilation failed.';
+          gl.deleteShader(shader);
+          throw new Error(message);
+        }
+        return shader;
+      }
+
+      function initGL() {
+        gl = canvas.getContext('webgl2', {
+          alpha: false,
+          antialias: false,
+          depth: false,
+          stencil: false,
+          powerPreference: 'high-performance',
+          preserveDrawingBuffer: false
+        });
+        if (!gl) throw new Error('WebGL 2 unavailable');
+
+        const vertex = compile(gl.VERTEX_SHADER, vertexSource);
+        const fragment = compile(gl.FRAGMENT_SHADER, fragmentSource);
+        program = gl.createProgram();
+        gl.attachShader(program, vertex);
+        gl.attachShader(program, fragment);
+        gl.linkProgram(program);
+        gl.deleteShader(vertex);
+        gl.deleteShader(fragment);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+        vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+        const location = gl.getAttribLocation(program, 'aPosition');
+        gl.enableVertexAttribArray(location);
+        gl.vertexAttribPointer(location, 2, gl.FLOAT, false, 0, 0);
+        gl.bindVertexArray(null);
+
+        uniforms = {
+          resolution: gl.getUniformLocation(program, 'uResolution'),
+          time: gl.getUniformLocation(program, 'uTime'),
+          zoom: gl.getUniformLocation(program, 'uZoom'),
+          glow: gl.getUniformLocation(program, 'uGlow'),
+          styleWeights: gl.getUniformLocation(program, 'uStyleWeights'),
+          input: gl.getUniformLocation(program, 'uInput'),
+          audio: gl.getUniformLocation(program, 'uAudio'),
+          palette: gl.getUniformLocation(program, 'uPalette[0]')
+        };
+        setStatus(false);
+        resize();
+      }
+
+      function resize() {
+        if (!gl) return;
+        const bounds = canvas.getBoundingClientRect();
+        const maxDpr = Math.min(window.devicePixelRatio || 1, 2);
+        const pixelBudget = 4_000_000;
+        const budgetDpr = Math.sqrt(pixelBudget / Math.max(1, bounds.width * bounds.height));
+        const dpr = Math.min(maxDpr, budgetDpr);
+        const width = Math.max(1, Math.round(bounds.width * dpr));
+        const height = Math.max(1, Math.round(bounds.height * dpr));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          gl.viewport(0, 0, width, height);
+        }
+      }
+
+      function render(now) {
+        const delta = Math.min(.05, (now - lastFrame) / 1000);
+        lastFrame = now;
+        if (!paused) elapsed += delta * settings.speed * (1 + audioVisual.energy * .55);
+
+        const paletteEase = 1 - Math.exp(-delta * 4.8);
+        for (let index = 0; index < paletteCurrent.length; index += 1) {
+          paletteCurrent[index] += (paletteTarget[index] - paletteCurrent[index]) * paletteEase;
+        }
+        const styleEase = 1 - Math.exp(-delta * 5.2);
+        for (let index = 0; index < styleCurrent.length; index += 1) {
+          styleCurrent[index] += (styleTarget[index] - styleCurrent[index]) * styleEase;
+        }
+
+        if (!paused) updateAudioAnalysis();
+        composedInput.x = settledInput.x + (motionEnabled ? motionTarget.x : 0);
+        composedInput.y = settledInput.y + (motionEnabled ? motionTarget.y : 0);
+        const inputTarget = pointerActive ? dragTarget : composedInput;
+        const inputEase = 1 - Math.exp(-delta * (pointerActive ? 18 : 7));
+        displayInput.x += (inputTarget.x - displayInput.x) * inputEase;
+        displayInput.y += (inputTarget.y - displayInput.y) * inputEase;
+
+        resize();
+        gl.useProgram(program);
+        gl.bindVertexArray(vao);
+        gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+        gl.uniform1f(uniforms.time, elapsed);
+        gl.uniform1f(uniforms.zoom, settings.zoom);
+        gl.uniform1f(uniforms.glow, settings.glow);
+        gl.uniform3fv(uniforms.styleWeights, styleCurrent);
+        gl.uniform2f(uniforms.input, displayInput.x, displayInput.y);
+        gl.uniform4f(uniforms.audio, audioVisual.low, audioVisual.mid, audioVisual.high, audioVisual.energy);
+        gl.uniform3fv(uniforms.palette, paletteCurrent);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.bindVertexArray(null);
+        frameId = requestAnimationFrame(render);
+      }
+
+      function averageBand(data, sampleRate, fftSize, lowHz, highHz) {
+        const binHz = sampleRate / fftSize;
+        const start = clamp(Math.floor(lowHz / binHz), 0, data.length - 1);
+        const end = clamp(Math.ceil(highHz / binHz), start + 1, data.length);
+        let sum = 0;
+        for (let index = start; index < end; index += 1) sum += data[index];
+        return sum / Math.max(1, end - start) / 255;
+      }
+
+      function followAudio(key, value) {
+        const current = audioReactive[key];
+        const amount = value > current ? .34 : .075;
+        audioReactive[key] += (value - current) * amount;
+        audioVisual[key] += (audioReactive[key] - audioVisual[key]) * .28;
+      }
+
+      function updateAudioAnalysis() {
+        if (!analyser || !frequencyData || !audioContext) {
+          ['low', 'mid', 'high', 'energy'].forEach(key => followAudio(key, 0));
+          audioMeter.style.transform = 'scaleX(0)';
+          return;
+        }
+        analyser.getByteFrequencyData(frequencyData);
+        const rate = audioContext.sampleRate;
+        const low = averageBand(frequencyData, rate, analyser.fftSize, 20, 160);
+        const mid = averageBand(frequencyData, rate, analyser.fftSize, 160, 2000);
+        const high = averageBand(frequencyData, rate, analyser.fftSize, 2000, 8000);
+        const gated = value => value < .018 ? 0 : clamp((value - .018) / .48, 0, 1);
+        const nextLow = gated(low);
+        const nextMid = gated(mid);
+        const nextHigh = gated(high);
+        const energy = clamp(nextLow * .42 + nextMid * .4 + nextHigh * .18, 0, 1);
+        followAudio('low', nextLow);
+        followAudio('mid', nextMid);
+        followAudio('high', nextHigh);
+        followAudio('energy', energy);
+        audioMeter.style.transform = `scaleX(${clamp(audioVisual.energy * 1.55, 0, 1).toFixed(3)})`;
+      }
+
+      function setAudioMenu(open) {
+        audioMenu.classList.toggle('open', open);
+        audioMenu.setAttribute('aria-hidden', String(!open));
+        audioButton.setAttribute('aria-expanded', String(open));
+      }
+
+      function updateAudioUI(message) {
+        const active = Boolean(activeAudioSource);
+        audioButton.setAttribute('aria-pressed', String(active));
+        audioButton.classList.toggle('listening', active);
+        audioButton.setAttribute('aria-label', active ? 'Audio reaction is active' : 'Open audio reaction controls');
+        micSourceButton.classList.toggle('active', activeAudioSource === 'microphone');
+        systemSourceButton.classList.toggle('active', activeAudioSource === 'system');
+        micState.textContent = activeAudioSource === 'microphone' ? 'Stop' : 'Start';
+        systemState.textContent = activeAudioSource === 'system' ? 'Stop' : 'Start';
+        if (message) audioStatus.textContent = message;
+      }
+
+      function stopAudio(message = 'Audio reaction stopped.') {
+        if (audioStream) {
+          audioStream.getTracks().forEach(track => {
+            track.onended = null;
+            track.stop();
+          });
+        }
+        if (audioSourceNode) {
+          try { audioSourceNode.disconnect(); } catch (error) { /* already disconnected */ }
+        }
+        if (analyser) {
+          try { analyser.disconnect(); } catch (error) { /* already disconnected */ }
+        }
+        if (audioContext) audioContext.close().catch(() => {});
+        audioContext = null;
+        audioStream = null;
+        audioSourceNode = null;
+        analyser = null;
+        frequencyData = null;
+        activeAudioSource = null;
+        updateAudioUI(message);
+      }
+
+      async function startAudio(kind) {
+        if (activeAudioSource === kind) {
+          stopAudio();
+          return;
+        }
+        if (!window.isSecureContext) {
+          updateAudioUI('Audio capture requires a secure browser connection.');
+          return;
+        }
+        if (!navigator.mediaDevices || (kind === 'microphone' && !navigator.mediaDevices.getUserMedia) || (kind === 'system' && !systemAudioSupported)) {
+          updateAudioUI(kind === 'system'
+            ? 'Tab or system audio is available in supported desktop browsers.'
+            : 'Microphone capture is unavailable in this browser.');
+          return;
+        }
+
+        stopAudio('Requesting permission…');
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          updateAudioUI('Web Audio is unavailable in this browser.');
+          return;
+        }
+
+        try {
+          audioContext = new AudioContextClass();
+          const capturePromise = kind === 'microphone'
+            ? navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+              })
+            : navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: true,
+                preferCurrentTab: true,
+                systemAudio: 'include'
+              });
+          if (audioContext.state === 'suspended') await audioContext.resume();
+          const stream = await capturePromise;
+          if (!stream.getAudioTracks().length) {
+            stream.getTracks().forEach(track => track.stop());
+            throw new Error('NO_AUDIO_TRACK');
+          }
+
+          audioStream = stream;
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 2048;
+          analyser.smoothingTimeConstant = .82;
+          frequencyData = new Uint8Array(analyser.frequencyBinCount);
+          audioSourceNode = audioContext.createMediaStreamSource(stream);
+          audioSourceNode.connect(analyser);
+          activeAudioSource = kind;
+          stream.getTracks().forEach(track => {
+            track.onended = () => stopAudio('Audio sharing ended.');
+          });
+          updateAudioUI(kind === 'microphone'
+            ? 'Listening to the microphone.'
+            : 'Reacting to shared tab or system audio.');
+        } catch (error) {
+          const noAudio = error && error.message === 'NO_AUDIO_TRACK';
+          const denied = error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
+          stopAudio(noAudio
+            ? 'No audio was shared. Choose a tab or screen and enable its audio option.'
+            : denied
+              ? 'Permission was not granted. You can try again whenever you are ready.'
+              : 'This audio source is unavailable here.');
+        }
+      }
+
+      function setPaused(next) {
+        paused = next;
+        pauseButton.setAttribute('aria-pressed', String(paused));
+        pauseButton.setAttribute('aria-label', paused ? 'Play animation' : 'Pause animation');
+      }
+
+      function toggleDrawer(force) {
+        const open = typeof force === 'boolean' ? force : !drawer.classList.contains('open');
+        drawer.classList.toggle('open', open);
+        drawerControls.inert = !open;
+        drawerControls.setAttribute('aria-hidden', String(!open));
+        drawerControls.querySelectorAll('button, input').forEach(control => { control.tabIndex = open ? 0 : -1; });
+        toolTab.setAttribute('aria-expanded', String(open));
+        toolTab.setAttribute('aria-label', open ? 'Close controls' : 'Open controls');
+      }
+
+      function updateControl(input) {
+        const key = input.dataset.setting;
+        settings[key] = Number(input.value);
+        document.getElementById(input.id + 'Value').textContent = Number(input.value).toFixed(2) + '×';
+      }
+
+      function setPalette(id) {
+        if (!palettes[id]) return;
+        settings.palette = id;
+        paletteTarget = paletteFloats(id);
+        paletteName.textContent = palettes[id].name;
+        document.querySelectorAll('[data-palette]').forEach(button => {
+          button.setAttribute('aria-pressed', String(button.dataset.palette === id));
+        });
+      }
+
+      function setStyle(id) {
+        if (!styles[id]) return;
+        settings.style = id;
+        styleTarget.set(styles[id].weights);
+        modeName.textContent = styles[id].name;
+        modeDescription.textContent = styles[id].description;
+        prismMark.dataset.style = id;
+        document.querySelectorAll('.preset-option').forEach(button => {
+          button.setAttribute('aria-pressed', String(button.dataset.style === id));
+        });
+      }
+
+      function setMotionLabel(text, pressed, disabled = false) {
+        motionButton.textContent = text;
+        motionButton.disabled = disabled;
+        motionButton.setAttribute('aria-pressed', String(pressed));
+      }
+
+      function mappedAcceleration(acceleration) {
+        const angle = screen.orientation && typeof screen.orientation.angle === 'number'
+          ? screen.orientation.angle
+          : (typeof window.orientation === 'number' ? window.orientation : 0);
+        const x = acceleration.x || 0;
+        const y = acceleration.y || 0;
+        if (angle === 90 || angle === -270) return { x: y, y: -x };
+        if (angle === 270 || angle === -90) return { x: -y, y: x };
+        if (Math.abs(angle) === 180) return { x: -x, y: -y };
+        return { x, y };
+      }
+
+      function handleMotion(event) {
+        if (!motionEnabled || !event.accelerationIncludingGravity) return;
+        const mapped = mappedAcceleration(event.accelerationIncludingGravity);
+        if (!motionBaseline) {
+          motionBaseline = mapped;
+          return;
+        }
+        const nextX = clamp((mapped.x - motionBaseline.x) / 6.5, -1, 1);
+        const nextY = clamp((mapped.y - motionBaseline.y) / 6.5, -1, 1);
+        motionTarget.x += (nextX - motionTarget.x) * .18;
+        motionTarget.y += (-nextY - motionTarget.y) * .18;
+        if (!motionReceived) {
+          motionReceived = true;
+          setMotionLabel('Tilt active', true);
+        }
+      }
+
+      function addMotionListener() {
+        if (motionListening) return;
+        window.addEventListener('devicemotion', handleMotion, { passive: true });
+        motionListening = true;
+      }
+
+      function disableMotion() {
+        motionEnabled = false;
+        motionTarget.x = 0;
+        motionTarget.y = 0;
+        setMotionLabel('Enable tilt', false);
+      }
+
+      async function enableMotion() {
+        if (!('DeviceMotionEvent' in window)) {
+          setMotionLabel('Tilt unavailable', false, true);
+          return;
+        }
+        try {
+          if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            const permission = await DeviceMotionEvent.requestPermission();
+            if (permission !== 'granted') {
+              setMotionLabel('Tilt denied', false);
+              return;
+            }
+          }
+          motionBaseline = null;
+          motionReceived = false;
+          motionEnabled = true;
+          addMotionListener();
+          setMotionLabel('Tilt ready', true);
+        } catch (error) {
+          console.warn('Device motion could not be enabled.', error);
+          setMotionLabel('Tilt unavailable', false, true);
+        }
+      }
+
+      function beginPointer(event) {
+        if (!event.isPrimary) return;
+        if (motionEnabled) disableMotion();
+        settledInput.x = displayInput.x;
+        settledInput.y = displayInput.y;
+        pointerActive = true;
+        pointerId = event.pointerId;
+        pointerStart.x = event.clientX;
+        pointerStart.y = event.clientY;
+        pointerOrigin.x = settledInput.x;
+        pointerOrigin.y = settledInput.y;
+        dragTarget.x = settledInput.x;
+        dragTarget.y = settledInput.y;
+        canvas.classList.add('dragging');
+        canvas.setPointerCapture(event.pointerId);
+      }
+
+      function movePointer(event) {
+        if (!pointerActive || event.pointerId !== pointerId) return;
+        const scale = Math.max(1, Math.min(canvas.clientWidth, canvas.clientHeight));
+        dragTarget.x = pointerOrigin.x + (event.clientX - pointerStart.x) / scale * 1.7;
+        dragTarget.y = pointerOrigin.y - (event.clientY - pointerStart.y) / scale * 1.7;
+        if (paused) {
+          displayInput.x = dragTarget.x;
+          displayInput.y = dragTarget.y;
+        }
+      }
+
+      function endPointer(event) {
+        if (!pointerActive || event.pointerId !== pointerId) return;
+        settledInput.x = dragTarget.x;
+        settledInput.y = dragTarget.y;
+        displayInput.x = settledInput.x;
+        displayInput.y = settledInput.y;
+        pointerActive = false;
+        pointerId = null;
+        canvas.classList.remove('dragging');
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      }
+
+      pauseButton.addEventListener('click', () => setPaused(!paused));
+      audioButton.addEventListener('click', () => {
+        if (activeAudioSource) {
+          stopAudio();
+          setAudioMenu(false);
+          return;
+        }
+        const opening = !audioMenu.classList.contains('open');
+        if (opening) toggleDrawer(false);
+        setAudioMenu(opening);
+      });
+      micSourceButton.addEventListener('click', () => startAudio('microphone'));
+      systemSourceButton.addEventListener('click', () => startAudio('system'));
+      toolTab.addEventListener('click', () => {
+        setAudioMenu(false);
+        toggleDrawer();
+      });
+      motionButton.addEventListener('click', () => {
+        if (motionEnabled) disableMotion();
+        else enableMotion();
+      });
+      canvas.addEventListener('pointerdown', beginPointer);
+      canvas.addEventListener('pointermove', movePointer);
+      canvas.addEventListener('pointerup', endPointer);
+      canvas.addEventListener('pointercancel', endPointer);
+      canvas.addEventListener('lostpointercapture', event => {
+        if (pointerActive && event.pointerId === pointerId) endPointer(event);
+      });
+      stage.addEventListener('pointerdown', (event) => {
+        if (motionEnabled && !motionButton.contains(event.target)) disableMotion();
+        if (drawer.classList.contains('open') && !drawer.contains(event.target)) toggleDrawer(false);
+        if (audioMenu.classList.contains('open') && !audioMenu.contains(event.target) && !audioButton.contains(event.target)) setAudioMenu(false);
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          toggleDrawer(false);
+          setAudioMenu(false);
+        }
+        if (event.code === 'Space' && event.target === document.body) {
+          event.preventDefault();
+          setPaused(!paused);
+        }
+      });
+
+      document.querySelectorAll('[data-setting]').forEach(input => {
+        input.addEventListener('input', () => updateControl(input));
+      });
+      document.querySelectorAll('[data-palette]').forEach(button => {
+        button.addEventListener('click', () => setPalette(button.dataset.palette));
+      });
+      document.querySelectorAll('.preset-option').forEach(button => {
+        button.addEventListener('click', () => setStyle(button.dataset.style));
+      });
+
+      resetButton.addEventListener('click', () => {
+        Object.assign(settings, defaults);
+        document.querySelectorAll('[data-setting]').forEach(input => {
+          input.value = String(defaults[input.dataset.setting]);
+          updateControl(input);
+        });
+        setPalette(defaults.palette);
+        setStyle(defaults.style);
+        dragTarget.x = 0;
+        dragTarget.y = 0;
+        settledInput.x = 0;
+        settledInput.y = 0;
+        displayInput.x = 0;
+        displayInput.y = 0;
+        motionTarget.x = 0;
+        motionTarget.y = 0;
+        motionBaseline = null;
+      });
+
+      canvas.addEventListener('webglcontextlost', event => {
+        event.preventDefault();
+        cancelAnimationFrame(frameId);
+        setStatus(true, 'The graphics context paused. Restoring the kaleidoscope…');
+      });
+      canvas.addEventListener('webglcontextrestored', () => {
+        try { initGL(); frameId = requestAnimationFrame(render); }
+        catch (error) { setStatus(true); }
+      });
+      window.addEventListener('resize', resize, { passive: true });
+      window.addEventListener('orientationchange', () => { motionBaseline = null; }, { passive: true });
+      window.addEventListener('pagehide', () => stopAudio('Audio reaction stopped.'));
+
+      const mobilePlatform = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const systemAudioSupported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !mobilePlatform;
+      updateAudioUI('Select a source to begin.');
+      if (!systemAudioSupported) {
+        systemSourceButton.disabled = true;
+        systemState.textContent = 'Desktop';
+        systemSourceButton.querySelector('small').textContent = 'Available in supported desktop browsers';
+      }
+      setAudioMenu(false);
+      setPaused(paused);
+      toggleDrawer(false);
+      setPalette(defaults.palette);
+      setStyle(defaults.style);
+      if (!('DeviceMotionEvent' in window)) {
+        setMotionLabel('Tilt unavailable', false, true);
+      } else if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        setMotionLabel('Enable tilt', false);
+      } else {
+        enableMotion();
+      }
+      try {
+        initGL();
+        frameId = requestAnimationFrame(render);
+      } catch (error) {
+        console.error(error);
+        setStatus(true);
+      }
+    })();
+  </script>
+</body>
+</html>
