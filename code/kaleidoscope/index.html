@@ -125,6 +125,38 @@
         rgba(8, 10, 16, 0.66);
       box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 4px rgba(183,249,139,.08), 0 12px 36px rgba(0,0,0,.28);
     }
+    /* Main-view tilt toggle: same glass chrome as pause/audio, stacked under
+       the pause button. Shown on mobile viewports / coarse pointers only —
+       desktop keeps the drawer's tilt toggle. */
+    .tilt-fab {
+      position: absolute;
+      z-index: 8;
+      top: calc(max(14px, env(safe-area-inset-top)) + 58px);
+      right: max(14px, env(safe-area-inset-right));
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      display: none;
+      place-items: center;
+      border-radius: 50%;
+      cursor: pointer;
+      color: var(--k-ink);
+      transition: border-color 180ms ease, background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+    }
+    .tilt-fab:active { transform: scale(.96); }
+    .tilt-fab:hover { border-color: rgba(255,255,255,.34); }
+    .tilt-fab svg { width: 20px; height: 20px; }
+    .tilt-fab[aria-pressed="true"] {
+      border-color: rgba(183,249,139,.58);
+      background:
+        linear-gradient(145deg, rgba(183,249,139,.2), rgba(255,255,255,.025) 44%),
+        rgba(8, 10, 16, 0.66);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 4px rgba(183,249,139,.08), 0 12px 36px rgba(0,0,0,.28);
+    }
+    .tilt-fab:disabled { opacity: .38; cursor: default; }
+    @media (max-width: 600px), (pointer: coarse) {
+      .tilt-fab { display: grid; }
+    }
     .audio-button.listening svg { animation: audioPulse 1.45s ease-in-out infinite; }
 
     .audio-menu {
@@ -485,7 +517,7 @@
     }
 
     @media (max-width: 600px) {
-      .pause-button, .audio-button { width: 46px; height: 46px; }
+      .pause-button, .audio-button, .tilt-fab { width: 46px; height: 46px; }
       .audio-menu { top: calc(max(14px, env(safe-area-inset-top)) + 56px); }
       .drawer {
         width: calc(100vw - 16px);
@@ -529,7 +561,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .drawer, .pause-button, .audio-button, .audio-menu { transition: none; }
+      .drawer, .pause-button, .audio-button, .audio-menu, .tilt-fab { transition: none; }
       .audio-button.listening svg { animation: none; }
     }
   </style>
@@ -541,6 +573,7 @@
        bottom insets are untouched. */
     .stage .pause-button,
     .stage .audio-button { top: 14px; }
+    .stage .tilt-fab { top: 72px; }
     .stage .audio-menu { top: 72px; }
     /* Explicit back-to-/code/ affordance floating over the artwork. */
     .k-back {
@@ -627,6 +660,10 @@
       <svg class="play-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" fill="currentColor"/></svg>
     </button>
 
+    <button class="tilt-fab glass-button" id="tiltFab" type="button" aria-label="Turn tilt control on" aria-pressed="false" disabled>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g transform="rotate(12 12 12)"><rect x="8.2" y="4" width="7.6" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="17.4" r=".9" fill="currentColor"/></g><path d="M4.6 8.3c-1.1 2-1.1 5.4 0 7.4M19.4 8.3c1.1 2 1.1 5.4 0 7.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+
     <section class="drawer" id="drawer" aria-label="Kaleidoscope controls">
       <button class="tool-tab glass-button" id="toolTab" type="button" aria-label="Open controls" aria-expanded="false" aria-controls="drawer">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.4 7.2V5.8a3.6 3.6 0 0 1 7.2 0v1.4M5.2 8.4h13.6c.7 0 1.2.5 1.2 1.2v7.9c0 .7-.5 1.2-1.2 1.2H5.2c-.7 0-1.2-.5-1.2-1.2V9.6c0-.7.5-1.2 1.2-1.2Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 13h16M10 12.2v1.6h4v-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -681,7 +718,7 @@
           <button class="reset" id="reset" type="button">Reset</button>
         </div>
       </div>
-      <p class="interaction-note">Drag anywhere to reposition the glass. Your composition stays put when released; dragging turns tilt off.</p>
+      <p class="interaction-note">Drag anywhere to reposition the glass. Your composition stays put when released. While tilt is on, touching holds the design still; tilt influence resumes when you let go.</p>
       </div>
     </section>
 
@@ -727,6 +764,7 @@
       const toolTab = document.getElementById('toolTab');
       const resetButton = document.getElementById('reset');
       const motionButton = document.getElementById('motion');
+      const tiltFab = document.getElementById('tiltFab');
       const paletteName = document.getElementById('paletteName');
       const modeName = document.getElementById('modeName');
       const modeDescription = document.getElementById('modeDescription');
@@ -770,6 +808,10 @@
       let motionListening = false;
       let motionEnabled = false;
       let motionReceived = false;
+      // Tilt influence is suspended while a touch is active (the design holds
+      // where it is) and resumes on release. The enabled state persists across
+      // touches until the user toggles tilt off.
+      let tiltSuspended = false;
       let audioContext = null;
       let audioStream = null;
       let audioSourceNode = null;
@@ -1292,6 +1334,10 @@
         motionButton.textContent = text;
         motionButton.disabled = disabled;
         motionButton.setAttribute('aria-pressed', String(pressed));
+        // The main-view FAB mirrors the same shared tilt state.
+        tiltFab.disabled = disabled;
+        tiltFab.setAttribute('aria-pressed', String(pressed));
+        tiltFab.setAttribute('aria-label', pressed ? 'Turn tilt control off' : 'Turn tilt control on');
       }
 
       function mappedAcceleration(acceleration) {
@@ -1307,7 +1353,7 @@
       }
 
       function handleMotion(event) {
-        if (!motionEnabled || !event.accelerationIncludingGravity) return;
+        if (!motionEnabled || tiltSuspended || !event.accelerationIncludingGravity) return;
         const mapped = mappedAcceleration(event.accelerationIncludingGravity);
         if (!motionBaseline) {
           motionBaseline = mapped;
@@ -1362,7 +1408,9 @@
 
       function beginPointer(event) {
         if (!event.isPrimary) return;
-        if (motionEnabled) disableMotion();
+        // Suspend tilt influence for the touch duration — the design holds
+        // where it is. The enabled state persists; it resumes on release.
+        if (motionEnabled) tiltSuspended = true;
         settledInput.x = displayInput.x;
         settledInput.y = displayInput.y;
         pointerActive = true;
@@ -1398,6 +1446,12 @@
         pointerId = null;
         canvas.classList.remove('dragging');
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        // Re-baseline on release so tilt resumes from the current device
+        // attitude instead of snapping.
+        if (tiltSuspended) {
+          tiltSuspended = false;
+          motionBaseline = null;
+        }
       }
 
       pauseButton.addEventListener('click', () => setPaused(!paused));
@@ -1421,6 +1475,11 @@
         if (motionEnabled) disableMotion();
         else enableMotion();
       });
+      // Main-view tilt toggle: same shared state as the drawer's toggle.
+      tiltFab.addEventListener('click', () => {
+        if (motionEnabled) disableMotion();
+        else enableMotion();
+      });
       canvas.addEventListener('pointerdown', beginPointer);
       canvas.addEventListener('pointermove', movePointer);
       canvas.addEventListener('pointerup', endPointer);
@@ -1429,7 +1488,9 @@
         if (pointerActive && event.pointerId === pointerId) endPointer(event);
       });
       stage.addEventListener('pointerdown', (event) => {
-        if (motionEnabled && !motionButton.contains(event.target)) disableMotion();
+        // Tapping anywhere on the stage (drawer tab, empty space) must never
+        // change the tilt enabled state — a touch only suspends tilt
+        // influence while it lasts (handled in beginPointer/endPointer).
         if (drawer.classList.contains('open') && !drawer.contains(event.target)) toggleDrawer(false);
         if (audioMenu.classList.contains('open') && !audioMenu.contains(event.target) && !audioButton.contains(event.target)) setAudioMenu(false);
       });
