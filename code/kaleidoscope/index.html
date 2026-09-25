@@ -59,6 +59,10 @@
       overflow: hidden;
       background: #050508;
       font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      /* Touch-and-hold must never select page text (iOS callout fix). */
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
     canvas {
