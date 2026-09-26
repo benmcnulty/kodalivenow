@@ -163,6 +163,8 @@
       top: calc(max(14px, env(safe-area-inset-top)) + 116px);
       left: max(14px, env(safe-area-inset-left));
       width: min(330px, calc(100vw - 28px));
+      max-height: calc(100dvh - 160px);
+      overflow-y: auto;
       padding: 16px;
       border: 1px solid var(--k-line);
       border-radius: 20px;
@@ -261,9 +263,11 @@
     .audio-menu {
       position: absolute;
       z-index: 7;
-      top: calc(max(14px, env(safe-area-inset-top)) + 58px);
+      top: calc(max(14px, env(safe-area-inset-top)) + 116px);
       left: max(14px, env(safe-area-inset-left));
       width: min(330px, calc(100vw - 28px));
+      max-height: calc(100dvh - 160px);
+      overflow-y: auto;
       padding: 16px;
       border: 1px solid var(--k-line);
       border-radius: 20px;
@@ -303,10 +307,13 @@
       background: rgba(255,255,255,.055);
       text-align: left;
       cursor: pointer;
+      color: inherit;
+      font: inherit;
     }
     .audio-source:hover:not(:disabled) { background: rgba(255,255,255,.095); border-color: rgba(255,255,255,.22); }
     .audio-source:disabled { opacity: .46; cursor: default; }
     .audio-source.active { border-color: rgba(183,249,139,.34); background: rgba(183,249,139,.09); }
+    .audio-source.active .source-state { color: rgba(183,249,139,.85); font-weight: 600; }
     .audio-source svg { width: 22px; height: 22px; color: rgba(255,255,255,.84); }
     .audio-source strong { display: block; font-size: 12px; font-weight: 600; }
     .audio-source small { display: block; margin-top: 2px; color: var(--k-muted); font-size: 10px; line-height: 1.25; }
@@ -329,6 +336,20 @@
       transition: transform 80ms linear;
     }
     .audio-status { min-height: 15px; margin-top: 8px; color: rgba(247,244,238,.58); font-size: 10px; line-height: 1.4; }
+    .audio-fallback {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border: 1px solid rgba(183,249,139,.4);
+      border-radius: 11px;
+      background: rgba(183,249,139,.1);
+      color: var(--k-ink);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .audio-fallback:hover { background: rgba(183,249,139,.18); }
+    .audio-fallback[hidden] { display: none; }
 
     @keyframes audioPulse {
       0%, 100% { transform: scale(.94); opacity: .72; }
@@ -616,8 +637,8 @@
     }
 
     @media (max-width: 600px) {
-      .pause-button, .audio-button, .tilt-fab { width: 46px; height: 46px; }
-      .audio-menu { top: calc(max(14px, env(safe-area-inset-top)) + 56px); }
+      .pause-button, .audio-button, .tilt-fab, .lens-button { width: 46px; height: 46px; }
+      .audio-menu { top: calc(max(14px, env(safe-area-inset-top)) + 114px); }
       .lens-menu { top: calc(max(14px, env(safe-area-inset-top)) + 114px); }
       .drawer {
         width: calc(100vw - 16px);
@@ -674,7 +695,7 @@
     .stage .pause-button,
     .stage .audio-button { top: 14px; }
     .stage .tilt-fab { top: 72px; }
-    .stage .audio-menu { top: 72px; }
+    .stage .audio-menu { top: 130px; }
     .stage .lens-menu { top: 130px; }
     /* Explicit back-to-/code/ affordance floating over the artwork. */
     .k-back {
@@ -754,6 +775,7 @@
       </div>
       <div class="audio-meter" aria-hidden="true"><span id="audioMeter"></span></div>
       <div class="audio-status" id="audioStatus" role="status" aria-live="polite">Select a source to begin.</div>
+      <button class="audio-fallback" id="audioFallback" type="button" hidden>Use the microphone instead</button>
     </aside>
 
     <button class="lens-button glass-button" id="lensButton" type="button" aria-label="Start camera lens" aria-expanded="false" aria-controls="lensMenu" aria-pressed="false">
@@ -904,6 +926,7 @@
       const micState = document.getElementById('micState');
       const systemState = document.getElementById('systemState');
       const audioStatus = document.getElementById('audioStatus');
+      const audioFallback = document.getElementById('audioFallback');
       const audioMeter = document.getElementById('audioMeter');
       const drawer = document.getElementById('drawer');
       const drawerControls = document.getElementById('drawerControls');
@@ -964,6 +987,12 @@
       let analyser = null;
       let frequencyData = null;
       let activeAudioSource = null;
+      // Last source that produced audio. Persisted so the panel can offer
+      // one-tap switching back after a failed capture (e.g. tab audio with
+      // no audio track on macOS -> microphone).
+      let lastAudioSource = null;
+      try { lastAudioSource = localStorage.getItem('kaleidoscope.audioSource'); } catch (error) { /* storage unavailable */ }
+      const NO_AUDIO_GUIDANCE = 'No audio came through. Pick \u2018Chrome Tab\u2019 in the chooser and turn on \u2018Share tab audio\u2019. macOS cannot capture full-screen system audio, and the native Apple Music app cannot be captured \u2014 play from a music.apple.com tab instead.';
       // ---- Camera lens (object chamber) ----
       const lensButton = document.getElementById('lensButton');
       const lensMenu = document.getElementById('lensMenu');
@@ -1433,6 +1462,7 @@
       }
 
       function stopAudio(message = 'Audio reaction stopped.') {
+        audioFallback.hidden = true;
         if (audioStream) {
           audioStream.getTracks().forEach(track => {
             track.onended = null;
@@ -1505,6 +1535,9 @@
           audioSourceNode = audioContext.createMediaStreamSource(stream);
           audioSourceNode.connect(analyser);
           activeAudioSource = kind;
+          lastAudioSource = kind;
+          try { localStorage.setItem('kaleidoscope.audioSource', kind); } catch (error) { /* storage unavailable */ }
+          audioFallback.hidden = true;
           stream.getTracks().forEach(track => {
             track.onended = () => stopAudio('Audio sharing ended.');
           });
@@ -1515,10 +1548,13 @@
           const noAudio = error && error.message === 'NO_AUDIO_TRACK';
           const denied = error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
           stopAudio(noAudio
-            ? 'No audio was shared. Choose a tab or screen and enable its audio option.'
+            ? NO_AUDIO_GUIDANCE
             : denied
               ? 'Permission was not granted. You can try again whenever you are ready.'
               : 'This audio source is unavailable here.');
+          // Offer one-tap switching back to the microphone after a failed
+          // tab/system capture — the common macOS dead end.
+          audioFallback.hidden = !(noAudio || denied);
         }
       }
 
@@ -1864,6 +1900,10 @@
       });
       micSourceButton.addEventListener('click', () => startAudio('microphone'));
       systemSourceButton.addEventListener('click', () => startAudio('system'));
+      audioFallback.addEventListener('click', () => {
+        audioFallback.hidden = true;
+        startAudio('microphone');
+      });
       lensButton.addEventListener('click', () => {
         // Head-up toggle: when the lens is off this tap IS the camera/motion
         // permission gesture, so it starts the rear camera directly. When the
