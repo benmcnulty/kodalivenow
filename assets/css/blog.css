@@ -1,0 +1,109 @@
+/* Blog — kodalivenow.com/blog. Mirrors the site's tokens; post pages reuse .page-hero, .prose, .card. */
+
+.post-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block: 1.1rem 0;
+  color: var(--faint);
+  font-size: 0.95rem;
+}
+.post-meta time { font-family: var(--font-mono); font-size: 0.85rem; letter-spacing: 0.02em; }
+.post-meta .dot { opacity: 0.5; }
+
+.post-list { display: grid; gap: 1.25rem; }
+.post-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  text-decoration: none;
+  color: inherit;
+}
+@media (min-width: 720px) {
+  .post-card { grid-template-columns: 320px 1fr; align-items: center; }
+}
+.post-card .thumb {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  aspect-ratio: 16 / 10;
+  background: var(--surface);
+}
+.post-card .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.post-card h2 { font-size: var(--text-h3); margin: 0 0 0.5rem; font-family: var(--font-display); }
+.post-card p { color: var(--muted); margin: 0; }
+.post-card .post-date { font-family: var(--font-mono); font-size: 0.82rem; color: var(--faint); }
+
+.prose h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  margin-block: 2.6rem 0.9rem;
+  color: var(--text);
+}
+.prose h3 {
+  font-size: 1.08rem;
+  margin-block: 2rem 0.7rem;
+  color: var(--text);
+}
+.prose ul, .prose ol { color: var(--muted); font-size: 1.08rem; padding-inline-start: 1.4rem; }
+.prose li + li { margin-block-start: 0.5rem; }
+.prose a { color: var(--teal); }
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.08em 0.4em;
+}
+
+figure.post-figure { margin: 2.2rem 0; }
+figure.post-figure .frame {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+figure.post-figure img { width: 100%; display: block; }
+figure.post-figure figcaption {
+  margin-block-start: 0.7rem;
+  color: var(--faint);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+figure.post-figure figcaption strong { color: var(--muted); font-weight: 600; }
+
+.repo-links { display: grid; gap: 0.9rem; margin-block: 2rem; }
+a.repo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+a.repo-link:hover { border-color: var(--teal); transform: translateY(-2px); }
+a.repo-link .path {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  color: var(--teal);
+  overflow-wrap: anywhere;
+}
+a.repo-link .label { color: var(--muted); font-size: 0.95rem; margin-inline-start: auto; white-space: nowrap; }
+a.repo-link .arrow { color: var(--faint); flex: none; }
+
+.post-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block: 3rem 0;
+  padding-block-start: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+.post-nav a { color: var(--muted); text-decoration: none; }
+.post-nav a:hover { color: var(--text); }
+.post-nav .next { margin-inline-start: auto; text-align: end; }
