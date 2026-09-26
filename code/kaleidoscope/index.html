@@ -38,6 +38,10 @@
 
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; }
+    /* Fullscreen app feel: the page still scrolls so the footer stays
+       reachable, but no viewport scrollbar is ever rendered. */
+    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     body {
       margin: 0;
       background: #050508;
@@ -129,6 +133,97 @@
         rgba(8, 10, 16, 0.66);
       box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 4px rgba(183,249,139,.08), 0 12px 36px rgba(0,0,0,.28);
     }
+    .lens-button {
+      position: absolute;
+      z-index: 8;
+      top: calc(max(14px, env(safe-area-inset-top)) + 58px);
+      left: max(14px, env(safe-area-inset-left));
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+    }
+    .lens-button:active { transform: scale(.96); }
+    .lens-button:hover { border-color: rgba(255,255,255,.34); }
+    .lens-button svg { width: 20px; height: 20px; }
+    .lens-button[aria-pressed="true"] {
+      border-color: rgba(183,249,139,.9);
+      background:
+        linear-gradient(145deg, rgba(183,249,139,.2), rgba(255,255,255,.025) 44%),
+        rgba(8, 10, 16, 0.66);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 4px rgba(183,249,139,.22), 0 12px 36px rgba(0,0,0,.28);
+    }
+    .lens-menu {
+      position: absolute;
+      z-index: 7;
+      top: calc(max(14px, env(safe-area-inset-top)) + 116px);
+      left: max(14px, env(safe-area-inset-left));
+      width: min(330px, calc(100vw - 28px));
+      padding: 16px;
+      border: 1px solid var(--k-line);
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at 15% -10%, rgba(183,249,139,.13), transparent 42%),
+        linear-gradient(150deg, rgba(20,26,36,.82), rgba(6,8,13,.93));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 22px 64px rgba(0,0,0,.42);
+      -webkit-backdrop-filter: blur(28px) saturate(145%);
+      backdrop-filter: blur(28px) saturate(145%);
+      transform: translateY(-8px) scale(.98);
+      transform-origin: top left;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(.22,.75,.18,1), visibility 0s linear 220ms;
+    }
+    .lens-menu.open {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition-delay: 0s;
+    }
+    .lens-menu h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+    .lens-menu > p { margin: 5px 0 13px; color: var(--k-muted); font-size: 11px; line-height: 1.45; }
+    .lens-sources { display: grid; gap: 8px; }
+    .lens-source {
+      width: 100%;
+      min-height: 49px;
+      display: grid;
+      grid-template-columns: 32px minmax(0,1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px;
+      background: rgba(255,255,255,.055);
+      text-align: left;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+    }
+    .lens-source:hover { border-color: rgba(255,255,255,.28); }
+    .lens-source:active { transform: scale(.985); }
+    .lens-source svg { width: 22px; height: 22px; }
+    .lens-source strong { display: block; font-size: 12px; font-weight: 600; }
+    .lens-source small { display: block; color: var(--k-muted); font-size: 10px; margin-top: 1px; }
+    .lens-source .source-state { font-size: 10px; color: rgba(183,249,139,.85); font-weight: 600; }
+    .lens-source[aria-pressed="true"] { border-color: rgba(183,249,139,.5); }
+    .lens-status { min-height: 15px; margin-top: 8px; color: rgba(247,244,238,.58); font-size: 10px; line-height: 1.4; }
+    .lens-off { width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 12px;
+      border: 1px solid rgba(255, 150, 150, .35); background: rgba(120, 30, 30, .25);
+      color: #ffd9d9; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+    .lens-off:hover { background: rgba(150, 40, 40, .35); }
+    .lens-off[hidden] { display: none; }
+    details.lens-advanced { margin-top: 10px; border-top: 1px solid rgba(255,255,255,.08); padding-top: 6px; }
+    details.lens-advanced summary { cursor: pointer; font-size: 11px; font-weight: 600; color: var(--k-muted); list-style: none; padding: 4px 0; }
+    details.lens-advanced summary::-webkit-details-marker { display: none; }
+    details.lens-advanced summary::before { content: '\25b8  '; }
+    details.lens-advanced[open] summary::before { content: '\25be  '; }
+    details.lens-advanced .control { margin-top: 8px; }
     /* Main-view tilt toggle: same glass chrome as pause/audio, stacked under
        the pause button. Shown on mobile viewports / coarse pointers only —
        desktop keeps the drawer's tilt toggle. */
@@ -523,6 +618,7 @@
     @media (max-width: 600px) {
       .pause-button, .audio-button, .tilt-fab { width: 46px; height: 46px; }
       .audio-menu { top: calc(max(14px, env(safe-area-inset-top)) + 56px); }
+      .lens-menu { top: calc(max(14px, env(safe-area-inset-top)) + 114px); }
       .drawer {
         width: calc(100vw - 16px);
         padding: 19px 14px max(16px, env(safe-area-inset-bottom));
@@ -565,7 +661,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .drawer, .pause-button, .audio-button, .audio-menu, .tilt-fab { transition: none; }
+      .drawer, .pause-button, .audio-button, .audio-menu, .tilt-fab, .lens-button, .lens-menu { transition: none; }
       .audio-button.listening svg { animation: none; }
     }
   </style>
@@ -579,6 +675,7 @@
     .stage .audio-button { top: 14px; }
     .stage .tilt-fab { top: 72px; }
     .stage .audio-menu { top: 72px; }
+    .stage .lens-menu { top: 130px; }
     /* Explicit back-to-/code/ affordance floating over the artwork. */
     .k-back {
       position: absolute; z-index: 9;
@@ -657,6 +754,51 @@
       </div>
       <div class="audio-meter" aria-hidden="true"><span id="audioMeter"></span></div>
       <div class="audio-status" id="audioStatus" role="status" aria-live="polite">Select a source to begin.</div>
+    </aside>
+
+    <button class="lens-button glass-button" id="lensButton" type="button" aria-label="Start camera lens" aria-expanded="false" aria-controls="lensMenu" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2L9 4.8A1.2 1.2 0 0 1 10.1 4h3.8a1.2 1.2 0 0 1 1.1.8L16.5 7h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="13" r="3.4" stroke="currentColor" stroke-width="1.7"/></svg>
+    </button>
+
+    <aside class="lens-menu" id="lensMenu" aria-label="Camera lens" aria-hidden="true">
+      <h2>Camera lens</h2>
+      <p>Point the camera at the world and the live view becomes the object chamber &mdash; broken into the mirrored facets. Video never leaves this device.</p>
+      <div class="lens-sources">
+        <button class="lens-source" id="lensCamera" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="7" width="13" height="11" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="m16 10.5 5-3v9l-5-3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span><strong>Live camera</strong><small id="lensFacingLabel">Rear camera</small></span>
+          <span class="source-state" id="lensCameraState">Start</span>
+        </button>
+        <button class="lens-source" id="lensFlip" type="button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 8h11l-3-3M17 16H6l3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>Switch camera</strong><small>Front and rear</small></span>
+          <span></span>
+        </button>
+        <label class="lens-source" for="lensPhotoInput">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.8" stroke="currentColor" stroke-width="1.5"/><path d="m5.5 17.5 4.5-4.5 3 3 2.5-2.5 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>Use a photo</strong><small>No camera permission needed</small></span>
+          <span></span>
+          <input type="file" id="lensPhotoInput" accept="image/*" hidden />
+        </label>
+      </div>
+      <details class="lens-advanced">
+        <summary>Advanced</summary>
+        <div class="control">
+          <div class="control-top"><label for="lensFilm">Dye film</label><span class="value" id="lensFilmValue">0.45</span></div>
+          <input id="lensFilm" data-lens="film" aria-label="Dye film tint strength" type="range" min="0" max="1" step="0.01" value="0.45" />
+        </div>
+        <div class="control">
+          <div class="control-top"><label for="lensZoom">Chamber zoom</label><span class="value" id="lensZoomValue">1.00&times;</span></div>
+          <input id="lensZoom" data-lens="zoom" aria-label="Chamber zoom" type="range" min="0.5" max="2" step="0.01" value="1" />
+        </div>
+        <button class="lens-source" id="lensRecenter" type="button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>
+          <span><strong>Recenter view</strong><small>Reset pan</small></span>
+          <span></span>
+        </button>
+      </details>
+      <div class="lens-status" id="lensStatus" role="status" aria-live="polite">Select a source to begin.</div>
+      <button class="lens-off" id="lensOff" type="button" hidden>Turn lens off</button>
     </aside>
 
     <button class="pause-button glass-button" id="pause" type="button" aria-label="Pause animation" aria-pressed="false">
@@ -822,6 +964,33 @@
       let analyser = null;
       let frequencyData = null;
       let activeAudioSource = null;
+      // ---- Camera lens (object chamber) ----
+      const lensButton = document.getElementById('lensButton');
+      const lensMenu = document.getElementById('lensMenu');
+      const lensCameraButton = document.getElementById('lensCamera');
+      const lensCameraState = document.getElementById('lensCameraState');
+      const lensFacingLabel = document.getElementById('lensFacingLabel');
+      const lensFlipButton = document.getElementById('lensFlip');
+      const lensPhotoInput = document.getElementById('lensPhotoInput');
+      const lensRecenterButton = document.getElementById('lensRecenter');
+      const lensOffButton = document.getElementById('lensOff');
+      const lensStatus = document.getElementById('lensStatus');
+      const lensFilmInput = document.getElementById('lensFilm');
+      const lensFilmValue = document.getElementById('lensFilmValue');
+      const lensZoomInput = document.getElementById('lensZoom');
+      const lensZoomValue = document.getElementById('lensZoomValue');
+      let lensStream = null;
+      let lensVideo = null;
+      let lensTexture = null;
+      let lensMode = null; // null | 'camera' | 'photo'
+      let lensFacing = 'environment';
+      let lensMixCur = 0;
+      let lensMixTarget = 0;
+      let lensFilm = 0.45;
+      let lensZoom = 1.0;
+      const lensPanTarget = { x: 0, y: 0 };
+      const lensPanShown = { x: 0, y: 0 };
+      const lensDragOrigin = { x: 0, y: 0 };
       const audioReactive = { low: 0, mid: 0, high: 0, energy: 0 };
       const audioVisual = { low: 0, mid: 0, high: 0, energy: 0 };
 
@@ -858,6 +1027,12 @@
         uniform vec2 uInput;
         uniform vec4 uAudio;
         uniform vec3 uPalette[7];
+        uniform sampler2D uLens;
+        uniform float uLensMix;
+        uniform vec2 uLensPan;
+        uniform float uLensFilm;
+        uniform float uLensZoom;
+        uniform float uLensFlip;
         out vec4 outColor;
 
         #define PI 3.141592653589793
@@ -963,6 +1138,10 @@
           vec3 styleWeights = max(uStyleWeights, vec3(0.0));
           styleWeights /= max(dot(styleWeights, vec3(1.0)), .001);
           vec2 source = classicSource * styleWeights.x + roseSource * styleWeights.y + tunnelSource * styleWeights.z;
+          // Lens object chamber: the same mirror fold, captured before drift
+          // and touch input, so the camera/photo feed is sampled through the
+          // facets themselves.
+          vec2 foldSource = source;
           vec2 autonomousDrift = vec2(
             .16 * sin(t * .23) + .065 * sin(t * .61 + 1.3),
             .13 * cos(t * .19 + .4) + .055 * cos(t * .47 - .8)
@@ -993,6 +1172,17 @@
           color = mix(color, b.rgb + color * .32, b.a * .80);
           vec4 c = glassLayer(source * rotate2d(-.48), 5.45, driftC, 19.3);
           color = mix(color, c.rgb + color * .24, c.a * .66);
+
+          // Lens chamber: the camera/photo feed sampled through the folded
+          // facets, so the repeating design is built from pieces of the live
+          // view. The dye palette tints the pieces like a translucent film.
+          vec2 lensUV = foldSource * (0.5 * uLensZoom) + 0.5 + uLensPan;
+          lensUV.x = mix(lensUV.x, 1.0 - lensUV.x, uLensFlip);
+          lensUV = abs(fract(lensUV) * 2.0 - 1.0);
+          vec3 chamber = texture(uLens, lensUV).rgb;
+          vec3 filmTint = jewel(fract(lensUV.x * 1.3 + lensUV.y * 1.7 + t * 0.02));
+          vec3 chamberToned = chamber * mix(vec3(1.0), filmTint * 2.2, uLensFilm);
+          color = mix(color, chamberToned + color * 0.12, uLensMix);
 
           // Fine suspended specks in the chamber.
           vec2 sp = source * 12.0 + vec2(.05*uTime, -.09*uTime);
@@ -1083,8 +1273,26 @@
           styleWeights: gl.getUniformLocation(program, 'uStyleWeights'),
           input: gl.getUniformLocation(program, 'uInput'),
           audio: gl.getUniformLocation(program, 'uAudio'),
-          palette: gl.getUniformLocation(program, 'uPalette[0]')
+          palette: gl.getUniformLocation(program, 'uPalette[0]'),
+          lens: gl.getUniformLocation(program, 'uLens'),
+          lensMix: gl.getUniformLocation(program, 'uLensMix'),
+          lensPan: gl.getUniformLocation(program, 'uLensPan'),
+          lensFilm: gl.getUniformLocation(program, 'uLensFilm'),
+          lensZoom: gl.getUniformLocation(program, 'uLensZoom'),
+          lensFlip: gl.getUniformLocation(program, 'uLensFlip')
         };
+        // The chamber texture is always valid (1x1 black until a source
+        // arrives), so the lens sample in the shader never reads garbage.
+        lensTexture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, lensTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.activeTexture(gl.TEXTURE0);
         setStatus(false);
         resize();
       }
@@ -1138,6 +1346,30 @@
         gl.uniform2f(uniforms.input, displayInput.x, displayInput.y);
         gl.uniform4f(uniforms.audio, audioVisual.low, audioVisual.mid, audioVisual.high, audioVisual.energy);
         gl.uniform3fv(uniforms.palette, paletteCurrent);
+        // Lens chamber: live video uploads whenever a fresh frame is ready;
+        // a chosen photo uploads once at selection time.
+        if (lensTexture && lensMode === 'camera' && lensVideo && lensVideo.readyState >= 2 && !lensVideo.paused) {
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, lensTexture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lensVideo);
+          gl.activeTexture(gl.TEXTURE0);
+        }
+        const lensEase = 1 - Math.exp(-delta * 5.2);
+        lensMixCur += (lensMixTarget - lensMixCur) * lensEase;
+        if (Math.abs(lensMixTarget - lensMixCur) < 0.002) lensMixCur = lensMixTarget;
+        // Tilt steers the sampled chamber (shared motion pipeline); touch
+        // drag pans it directly. Both ease like the design input.
+        const tiltPanX = (motionEnabled && !tiltSuspended) ? motionTarget.x * 0.55 : 0;
+        const tiltPanY = (motionEnabled && !tiltSuspended) ? motionTarget.y * 0.55 : 0;
+        const panEase = 1 - Math.exp(-delta * 9);
+        lensPanShown.x += ((lensPanTarget.x + tiltPanX) - lensPanShown.x) * panEase;
+        lensPanShown.y += ((lensPanTarget.y + tiltPanY) - lensPanShown.y) * panEase;
+        gl.uniform1i(uniforms.lens, 1);
+        gl.uniform1f(uniforms.lensMix, lensMixCur);
+        gl.uniform2f(uniforms.lensPan, lensPanShown.x, lensPanShown.y);
+        gl.uniform1f(uniforms.lensFilm, lensFilm);
+        gl.uniform1f(uniforms.lensZoom, lensZoom);
+        gl.uniform1f(uniforms.lensFlip, (lensFacing === 'user' && lensMode === 'camera') ? 1 : 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.bindVertexArray(null);
         frameId = requestAnimationFrame(render);
@@ -1290,6 +1522,161 @@
         }
       }
 
+      function setLensMenu(open) {
+        lensMenu.classList.toggle('open', open);
+        lensMenu.setAttribute('aria-hidden', String(!open));
+        lensButton.setAttribute('aria-expanded', String(open));
+        lensOffButton.hidden = lensMode === null;
+      }
+
+      function updateLensUI(message) {
+        const active = lensMode !== null;
+        lensButton.setAttribute('aria-pressed', String(active));
+        lensButton.classList.toggle('listening', active);
+        lensButton.setAttribute('aria-label', active ? 'Camera lens is on: open lens controls' : 'Start camera lens');
+        lensCameraButton.setAttribute('aria-pressed', String(lensMode === 'camera'));
+        lensCameraState.textContent = lensMode === 'camera' ? 'Stop' : 'Start';
+        lensFacingLabel.textContent = lensFacing === 'user' ? 'Front camera' : 'Rear camera';
+        if (message) lensStatus.textContent = message;
+      }
+
+      function hasCameraSupport() {
+        return window.isSecureContext && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+      }
+
+      // Reuse the shared tilt pipeline from the lens gesture: the page feeds on
+      // devicemotion, so DeviceMotionEvent.requestPermission() is the correct
+      // iOS permission call here (same path as enableMotion()).
+      async function ensureMotionForLens() {
+        if (motionEnabled || !('DeviceMotionEvent' in window)) return;
+        await enableMotion();
+      }
+
+      function stopLens(message = 'Camera lens off.') {
+        if (lensStream) {
+          lensStream.getTracks().forEach(track => {
+            track.onended = null;
+            track.stop();
+          });
+        }
+        if (lensVideo) {
+          lensVideo.pause();
+          lensVideo.srcObject = null;
+        }
+        lensStream = null;
+        lensMode = null;
+        lensMixTarget = 0;
+        updateLensUI(message);
+      }
+
+      async function beginLensCamera() {
+        if (!window.isSecureContext) {
+          updateLensUI('Camera access requires a secure (https) connection.');
+          return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          updateLensUI('Camera capture is unavailable in this browser.');
+          return;
+        }
+        stopLens('Requesting camera\u2026');
+        // Tilt steers the chamber: request motion permission in the same
+        // user gesture as the camera, reusing the shared tilt pipeline.
+        try { await ensureMotionForLens(); } catch (error) { /* tilt stays off; the lens still works */ }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: lensFacing,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+          if (!stream.getVideoTracks().length) {
+            stream.getTracks().forEach(track => track.stop());
+            throw new Error('NO_VIDEO_TRACK');
+          }
+          if (!lensVideo) {
+            lensVideo = document.createElement('video');
+            lensVideo.muted = true;
+            lensVideo.playsInline = true;
+            lensVideo.setAttribute('playsinline', '');
+          }
+          lensVideo.srcObject = stream;
+          await lensVideo.play();
+          lensStream = stream;
+          lensMode = 'camera';
+          lensMixTarget = 1;
+          stream.getVideoTracks().forEach(track => {
+            track.onended = () => stopLens('Camera was disconnected.');
+          });
+          updateLensUI(lensFacing === 'user' ? 'Live camera \u00b7 front.' : 'Live camera \u00b7 rear.');
+        } catch (error) {
+          const denied = error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
+          const noTrack = error && error.message === 'NO_VIDEO_TRACK';
+          stopLens(denied
+            ? 'Camera permission was not granted. A photo works with no permission.'
+            : noTrack
+              ? 'No camera was found on this device.'
+              : 'The camera is unavailable here.');
+        }
+      }
+
+      async function startLensCamera() {
+        if (lensMode === 'camera') {
+          stopLens();
+          return;
+        }
+        await beginLensCamera();
+      }
+
+      async function flipLensCamera() {
+        lensFacing = lensFacing === 'user' ? 'environment' : 'user';
+        if (lensMode === 'camera') {
+          if (lensStream) {
+            lensStream.getTracks().forEach(track => track.stop());
+            lensStream = null;
+          }
+          if (lensVideo) {
+            lensVideo.pause();
+            lensVideo.srcObject = null;
+          }
+          lensMode = null;
+          lensMixTarget = 0;
+          await beginLensCamera();
+        } else {
+          updateLensUI();
+        }
+      }
+
+      async function useLensPhoto(file) {
+        if (!file) return;
+        stopLens('Loading photo\u2026');
+        try {
+          let bitmap = await createImageBitmap(file);
+          const maxSide = 1280;
+          const downscale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+          if (downscale < 1) {
+            const cnv = document.createElement('canvas');
+            cnv.width = Math.max(1, Math.round(bitmap.width * downscale));
+            cnv.height = Math.max(1, Math.round(bitmap.height * downscale));
+            cnv.getContext('2d').drawImage(bitmap, 0, 0, cnv.width, cnv.height);
+            if (bitmap.close) bitmap.close();
+            bitmap = await createImageBitmap(cnv);
+          }
+          if (!lensTexture || !gl) throw new Error('NO_GL');
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, lensTexture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+          gl.activeTexture(gl.TEXTURE0);
+          if (bitmap.close) bitmap.close();
+          lensMode = 'photo';
+          lensMixTarget = 1;
+          updateLensUI('Photo chamber \u00b7 ' + (file.name || 'image') + '.');
+        } catch (error) {
+          stopLens('That photo could not be used. Try another image.');
+        }
+      }
+
       function setPaused(next) {
         paused = next;
         pauseButton.setAttribute('aria-pressed', String(paused));
@@ -1423,6 +1810,8 @@
         pointerStart.y = event.clientY;
         pointerOrigin.x = settledInput.x;
         pointerOrigin.y = settledInput.y;
+        lensDragOrigin.x = lensPanTarget.x;
+        lensDragOrigin.y = lensPanTarget.y;
         dragTarget.x = settledInput.x;
         dragTarget.y = settledInput.y;
         canvas.classList.add('dragging');
@@ -1434,6 +1823,10 @@
         const scale = Math.max(1, Math.min(canvas.clientWidth, canvas.clientHeight));
         dragTarget.x = pointerOrigin.x + (event.clientX - pointerStart.x) / scale * 1.7;
         dragTarget.y = pointerOrigin.y - (event.clientY - pointerStart.y) / scale * 1.7;
+        if (lensMode !== null) {
+          lensPanTarget.x = lensDragOrigin.x + (event.clientX - pointerStart.x) / scale * 0.9;
+          lensPanTarget.y = lensDragOrigin.y - (event.clientY - pointerStart.y) / scale * 0.9;
+        }
         if (paused) {
           displayInput.x = dragTarget.x;
           displayInput.y = dragTarget.y;
@@ -1466,13 +1859,68 @@
           return;
         }
         const opening = !audioMenu.classList.contains('open');
-        if (opening) toggleDrawer(false);
+        if (opening) { toggleDrawer(false); setLensMenu(false); }
         setAudioMenu(opening);
       });
       micSourceButton.addEventListener('click', () => startAudio('microphone'));
       systemSourceButton.addEventListener('click', () => startAudio('system'));
+      lensButton.addEventListener('click', () => {
+        // Head-up toggle: when the lens is off this tap IS the camera/motion
+        // permission gesture, so it starts the rear camera directly. When the
+        // lens is on, the tap opens the menu hub (flip, photo, advanced,
+        // turn lens off) instead of killing the session by accident.
+        if (lensMode === null) {
+          const menuOpen = lensMenu.classList.contains('open');
+          if (menuOpen) {
+            setLensMenu(false);
+            return;
+          }
+          if (hasCameraSupport()) {
+            toggleDrawer(false);
+            setAudioMenu(false);
+            startLensCamera();
+          } else {
+            setLensMenu(true);
+            updateLensUI('Camera unavailable here — use a photo instead.');
+          }
+          return;
+        }
+        const opening = !lensMenu.classList.contains('open');
+        if (opening) {
+          toggleDrawer(false);
+          setAudioMenu(false);
+        }
+        setLensMenu(opening);
+      });
+      lensOffButton.addEventListener('click', () => {
+        stopLens();
+        setLensMenu(false);
+      });
+      lensCameraButton.addEventListener('click', () => startLensCamera());
+      lensFlipButton.addEventListener('click', () => flipLensCamera());
+      lensPhotoInput.addEventListener('change', () => {
+        useLensPhoto(lensPhotoInput.files && lensPhotoInput.files[0]);
+        lensPhotoInput.value = '';
+      });
+      lensRecenterButton.addEventListener('click', () => {
+        lensPanTarget.x = 0;
+        lensPanTarget.y = 0;
+        updateLensUI('View recentered.');
+      });
+      document.querySelectorAll('[data-lens]').forEach(input => {
+        input.addEventListener('input', () => {
+          if (input.dataset.lens === 'film') {
+            lensFilm = Number(input.value);
+            lensFilmValue.textContent = lensFilm.toFixed(2);
+          } else {
+            lensZoom = Number(input.value);
+            lensZoomValue.textContent = lensZoom.toFixed(2) + '\u00d7';
+          }
+        });
+      });
       toolTab.addEventListener('click', () => {
         setAudioMenu(false);
+        setLensMenu(false);
         toggleDrawer();
       });
       motionButton.addEventListener('click', () => {
@@ -1497,11 +1945,13 @@
         // influence while it lasts (handled in beginPointer/endPointer).
         if (drawer.classList.contains('open') && !drawer.contains(event.target)) toggleDrawer(false);
         if (audioMenu.classList.contains('open') && !audioMenu.contains(event.target) && !audioButton.contains(event.target)) setAudioMenu(false);
+        if (lensMenu.classList.contains('open') && !lensMenu.contains(event.target) && !lensButton.contains(event.target)) setLensMenu(false);
       });
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
           toggleDrawer(false);
           setAudioMenu(false);
+          setLensMenu(false);
         }
         if (event.code === 'Space' && event.target === document.body) {
           event.preventDefault();
@@ -1536,6 +1986,14 @@
         motionTarget.x = 0;
         motionTarget.y = 0;
         motionBaseline = null;
+        lensPanTarget.x = 0;
+        lensPanTarget.y = 0;
+        lensFilm = 0.45;
+        lensZoom = 1.0;
+        lensFilmInput.value = '0.45';
+        lensZoomInput.value = '1';
+        lensFilmValue.textContent = '0.45';
+        lensZoomValue.textContent = '1.00\u00d7';
       });
 
       canvas.addEventListener('webglcontextlost', event => {
@@ -1549,11 +2007,12 @@
       });
       window.addEventListener('resize', resize, { passive: true });
       window.addEventListener('orientationchange', () => { motionBaseline = null; }, { passive: true });
-      window.addEventListener('pagehide', () => stopAudio('Audio reaction stopped.'));
+      window.addEventListener('pagehide', () => { stopAudio('Audio reaction stopped.'); stopLens('Camera lens stopped.'); });
 
       const mobilePlatform = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       const systemAudioSupported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !mobilePlatform;
       updateAudioUI('Select a source to begin.');
+      updateLensUI('Select a source to begin.');
       if (!systemAudioSupported) {
         systemSourceButton.disabled = true;
         systemState.textContent = 'Desktop';
