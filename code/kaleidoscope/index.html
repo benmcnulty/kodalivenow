@@ -258,7 +258,7 @@
     @media (max-width: 600px), (pointer: coarse) {
       .tilt-fab { display: grid; }
     }
-    .audio-button.listening svg { animation: audioPulse 1.45s ease-in-out infinite; }
+    .audio-button.listening .icon-glyph { animation: audioPulse 1.45s ease-in-out infinite; }
 
     .audio-menu {
       position: absolute;
@@ -391,6 +391,15 @@
       transform: translateX(-50%);
     }
     .tool-tab svg { width: 22px; height: 22px; transform: translateY(-2px); }
+    /* Panel toggles swap to a close (X) glyph while their panel is open.
+       Driven purely by aria-expanded, so every close path (toggle, outside
+       click, Escape) stays in sync with the visible icon. */
+    .tool-tab .icon-close,
+    .audio-button .icon-close { display: none; }
+    .tool-tab[aria-expanded="true"] .icon-glyph,
+    .audio-button[aria-expanded="true"] .icon-glyph { display: none; }
+    .tool-tab[aria-expanded="true"] .icon-close,
+    .audio-button[aria-expanded="true"] .icon-close { display: block; }
 
     .drawer-head {
       display: flex;
@@ -421,9 +430,11 @@
       height: 40px;
       display: grid;
       place-items: center;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
+      /* Decorative style emblem: a label, not a control. No button
+         affordances — no border, no fill, no hover/focus/active states,
+         and it never receives pointer events. */
+      pointer-events: none;
+      user-select: none;
     }
     .prism-mark svg { width: 24px; height: 24px; }
     .prism-mark .rosette-icon,
@@ -741,7 +752,8 @@
     <div class="noise" aria-hidden="true"></div>
 
     <button class="audio-button glass-button" id="audioButton" type="button" aria-label="Open audio reaction controls" aria-expanded="false" aria-controls="audioMenu" aria-pressed="false">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.3 18.2V6.4l8-1.7v11.1M9.3 10l8-1.7M9.3 18.2c0 1.2-1.3 2.2-2.9 2.2s-2.9-1-2.9-2.2S4.8 16 6.4 16s2.9 1 2.9 2.2Zm8-2.4c0 1.2-1.3 2.2-2.9 2.2s-2.9-1-2.9-2.2 1.3-2.2 2.9-2.2 2.9 1 2.9 2.2Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg class="icon-glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.3 18.2V6.4l8-1.7v11.1M9.3 10l8-1.7M9.3 18.2c0 1.2-1.3 2.2-2.9 2.2s-2.9-1-2.9-2.2S4.8 16 6.4 16s2.9 1 2.9 2.2Zm8-2.4c0 1.2-1.3 2.2-2.9 2.2s-2.9-1-2.9-2.2 1.3-2.2 2.9-2.2 2.9 1 2.9 2.2Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg class="icon-close" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
     </button>
 
     <aside class="audio-menu" id="audioMenu" aria-label="Audio reaction" aria-hidden="true">
@@ -814,7 +826,8 @@
 
     <section class="drawer" id="drawer" aria-label="Kaleidoscope controls">
       <button class="tool-tab glass-button" id="toolTab" type="button" aria-label="Open controls" aria-expanded="false" aria-controls="drawer">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.4 7.2V5.8a3.6 3.6 0 0 1 7.2 0v1.4M5.2 8.4h13.6c.7 0 1.2.5 1.2 1.2v7.9c0 .7-.5 1.2-1.2 1.2H5.2c-.7 0-1.2-.5-1.2-1.2V9.6c0-.7.5-1.2 1.2-1.2Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 13h16M10 12.2v1.6h4v-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="icon-glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.4 7.2V5.8a3.6 3.6 0 0 1 7.2 0v1.4M5.2 8.4h13.6c.7 0 1.2.5 1.2 1.2v7.9c0 .7-.5 1.2-1.2 1.2H5.2c-.7 0-1.2-.5-1.2-1.2V9.6c0-.7.5-1.2 1.2-1.2Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 13h16M10 12.2v1.6h4v-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="icon-close" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
       </button>
 
       <div class="drawer-head">
@@ -1142,27 +1155,38 @@
           // and touch input, so the camera/photo feed is sampled through the
           // facets themselves.
           vec2 foldSource = source;
+          // Idle choreography: layered slow motion with gentle variation.
+          // A ~1-minute swell envelope periodically deepens the drift, the
+          // counter-turn and the breathing; a soft zoom "breathing" keeps the
+          // chamber feeling alive at a glance. Interaction (uInput), audio
+          // (uAudio) and lens (uLens*) paths are untouched.
+          float swell = smoothstep(.5, 1.0, sin(t * .11 + 1.2));
           vec2 autonomousDrift = vec2(
-            .16 * sin(t * .23) + .065 * sin(t * .61 + 1.3),
-            .13 * cos(t * .19 + .4) + .055 * cos(t * .47 - .8)
+            .16 * sin(t * .23) + .065 * sin(t * .61 + 1.3) + .042 * swell * sin(t * .083 + .7),
+            .13 * cos(t * .19 + .4) + .055 * cos(t * .47 - .8) + .038 * swell * cos(t * .097 - 1.1)
           );
-          source = rotate2d(.043 * sin(t * .29) + .017 * cos(t * .67)) * source;
+          float idleTurn = .043 * sin(t * .29) + .017 * cos(t * .67)
+            - .034 * sin(t * .113 + 2.1) * (1.0 + .6 * swell);
+          source = rotate2d(idleTurn) * source;
+          float idleBreath = 1.0 + .016 * sin(t * .11 + .6) + .008 * sin(t * .23 + 1.9)
+            + .012 * swell * sin(t * .088);
+          source *= idleBreath;
           source += autonomousDrift + uInput * .48;
           source.x += (.035 + uAudio.y * .028) * sin(radius * 9.0 - t * .17);
           float wrapped = classicWrapped * styleWeights.x + roseWrapped * styleWeights.y + tunnelWrapped * styleWeights.z;
           float sector = classicSector * styleWeights.x + roseSector * styleWeights.y + tunnelSector * styleWeights.z;
 
           vec2 driftA = vec2(
-            .42 * sin(t * .17) + .09 * sin(t * .53 + .5),
-            -.34 * cos(t * .13 + .8) + .08 * sin(t * .41)
+            .42 * sin(t * .17) + .09 * sin(t * .53 + .5) + .05 * swell * sin(t * .094 + 2.0),
+            -.34 * cos(t * .13 + .8) + .08 * sin(t * .41) + .05 * swell * cos(t * .103 + .4)
           );
           vec2 driftB = vec2(
-            -.31 * sin(t * .11 + 1.6) + .10 * cos(t * .37),
-            .39 * sin(t * .15 + .2) + .07 * cos(t * .59)
+            -.31 * sin(t * .11 + 1.6) + .10 * cos(t * .37) + .05 * swell * cos(t * .089 + 1.1),
+            .39 * sin(t * .15 + .2) + .07 * cos(t * .59) + .05 * swell * sin(t * .107 + 2.6)
           );
           vec2 driftC = vec2(
-            .27 * cos(t * .14 - .7) + .08 * sin(t * .49),
-            .30 * sin(t * .12 + 2.1) + .09 * cos(t * .33)
+            .27 * cos(t * .14 - .7) + .08 * sin(t * .49) + .05 * swell * sin(t * .099 + .9),
+            .30 * sin(t * .12 + 2.1) + .09 * cos(t * .33) + .05 * swell * cos(t * .092 + 1.7)
           );
 
           vec3 color = vec3(.0038, .0038, .0078);
@@ -1418,6 +1442,7 @@
         audioMenu.classList.toggle('open', open);
         audioMenu.setAttribute('aria-hidden', String(!open));
         audioButton.setAttribute('aria-expanded', String(open));
+        if (!activeAudioSource) audioButton.setAttribute('aria-label', open ? 'Close audio reaction controls' : 'Open audio reaction controls');
       }
 
       function updateAudioUI(message) {
