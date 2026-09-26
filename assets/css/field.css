@@ -15,15 +15,21 @@
 
 /* ============================================================
    1. HERO PEEK
-   Sits between the 3D canvas (z 0) and the vignette/text
-   (z 1/2): layered over the background, tucked behind the
-   headline. pointer-events none — pure portrait, never
-   intercepting taps on the social chips.
+   Koda's transparent cutout, tucked behind the headline text.
+   The img lives inside .hero-inner (its offset parent). Wide:
+   the hero-relative placement is reproduced with a calc that
+   subtracts .hero-inner's centered margin, so the accepted
+   desktop look is unchanged. Narrow: Koda peeks OVER the text —
+   head above the eyebrow, body tucked behind the headline top —
+   instead of floating over the middle of the copy.
+   z-index -1: behind the text, inside .hero-inner's stacking
+   context (so still above the canvas/vignette). pointer-events
+   none — pure portrait, never intercepting taps on the chips.
    ============================================================ */
 .hero-peek {
   position: absolute;
-  z-index: 1;
-  inset-inline-end: clamp(4rem, 18vw, 16rem);
+  z-index: -1;
+  inset-inline-end: calc(clamp(4rem, 18vw, 16rem) - (100vw - 100%) / 2);
   inset-block-start: 50%;
   width: clamp(190px, 23vw, 330px);
   height: auto;
@@ -36,16 +42,22 @@
 }
 
 @media (max-width: 899px) {
-  /* Narrow: the headline runs full-width and sits vertically centered,
-     so Koda stays glued to its vertical middle at the right edge —
-     peeking from behind the text — instead of pinned to the hero's top
-     corner, which detached from the headline on tall viewports (iPad
-     portrait). Container-relative insets; no fixed offsets. */
+  /* Narrow: peek over the text. The portrait's TOP pins to the top of
+     reserved padding above the text block, so it can never rise above
+     the hero (the hero always starts below the fixed nav). The bottom
+     2.5rem of the portrait tucks behind the eyebrow/headline top.
+     Padding — not a bottom-offset — reserves the space, so the hero
+     grows with the content and the portrait stays inside it. */
+  .hero-inner {
+    --peek-w: clamp(110px, 32vw, 170px);
+    padding-top: calc(var(--peek-w) * 762 / 640 - 2.5rem);
+  }
   .hero-peek {
-    inset-block-start: 50%;
-    inset-inline-end: clamp(0.5rem, 3vw, 1.25rem);
-    width: clamp(104px, 30vw, 160px);
-    transform: translateY(-50%);
+    inset-block-start: 0;
+    bottom: auto;
+    inset-inline-end: clamp(0.25rem, 2vw, 1rem);
+    width: var(--peek-w);
+    transform: none;
   }
 }
 

@@ -1,0 +1,1758 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050508" />
+  <meta name="color-scheme" content="dark" />
+  <title>Tie-Dye Mandelbrot Explorer &mdash; Koda&rsquo;s Code</title>
+  <meta name="description" content="A tie-dye Mandelbrot deep-zoom explorer &mdash; dive into infinite dye bands, switch render styles and palettes. Runs entirely in your browser." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Koda" />
+  <meta property="og:title" content="Tie-Dye Mandelbrot Explorer &mdash; Koda&rsquo;s Code" />
+  <meta property="og:description" content="A tie-dye Mandelbrot deep-zoom explorer &mdash; dive into infinite dye bands, switch render styles and palettes. Runs entirely in your browser." />
+  <meta property="og:image" content="https://kodalivenow.com/assets/img/og-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg" />
+  <link rel="preload" href="../../assets/fonts/clash-display-600.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="../../assets/css/main.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-type.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-glass.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-icons.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-motion.css" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --k-ink: #f7f4ee;
+      --k-muted: rgba(247, 244, 238, 0.64);
+      --k-line: rgba(255, 255, 255, 0.17);
+      --k-accent: #b7f98b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    /* Fullscreen app feel: the page still scrolls so the footer stays
+       reachable, but no viewport scrollbar is ever rendered. */
+    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+    body {
+      margin: 0;
+      background: #050508;
+      color: var(--k-ink);
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 60px);
+      height: calc(100dvh - 60px);
+      margin-top: 60px;
+      isolation: isolate;
+      overflow: hidden;
+      background: #050508;
+      font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      /* Touch-and-hold must never select page text (iOS callout fix). */
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .k-back {
+      position: absolute; z-index: 9;
+      top: 14px; left: 50%; transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: .45rem;
+      font-family: "Inter", system-ui, sans-serif;
+      font-size: .85rem; font-weight: 600;
+      color: var(--k-ink); text-decoration: none; white-space: nowrap;
+      background: rgba(20,16,29,.62);
+      border: 1px solid rgba(233,230,241,.14);
+      border-radius: 999px; padding: .5rem 1rem;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .k-back:hover { color: var(--k-accent); }
+    .k-back svg { width: 1rem; height: 1rem; }
+    /* No-JS honesty: the app cannot run without JavaScript/WebGL. */
+    .k-noscript {
+      position: absolute; inset: 0; z-index: 5;
+      display: grid; place-items: center; text-align: center; padding: 2rem;
+    }
+    .k-noscript p { color: var(--k-ink); line-height: 1.6; max-width: 30ch; }
+    .k-noscript a { color: var(--k-accent); }
+    @media (prefers-reduced-motion: reduce) {
+      .k-back { backdrop-filter: none; -webkit-backdrop-filter: blur(10px); }
+    }
+
+    /* narrow screens: the back pill stays top-center, the app title drops
+       below it so the two never collide */
+    @media (max-width: 520px) {
+      .mandel .title { top: calc(env(safe-area-inset-top, 0px) + 62px); }
+    }
+  </style>
+  <style>
+    :root {
+      color-scheme: dark;
+      --k-ink: #f7f4ee;
+      --k-muted: rgba(247, 244, 238, 0.64);
+      --k-line: rgba(255, 255, 255, 0.17);
+      --k-accent: #b7f98b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    /* Fullscreen app feel: the page still scrolls so the footer stays
+       reachable, but no viewport scrollbar is ever rendered. */
+    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+    body {
+      margin: 0;
+      background: #050508;
+      color: var(--k-ink);
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 60px);
+      height: calc(100dvh - 60px);
+      margin-top: 60px;
+      isolation: isolate;
+      overflow: hidden;
+      background: #050508;
+      font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      /* Touch-and-hold must never select page text (iOS callout fix). */
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .k-back {
+      position: absolute; z-index: 9;
+      top: 14px; left: 50%; transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: .45rem;
+      font-family: "Inter", system-ui, sans-serif;
+      font-size: .85rem; font-weight: 600;
+      color: var(--k-ink); text-decoration: none; white-space: nowrap;
+      background: rgba(20,16,29,.62);
+      border: 1px solid rgba(233,230,241,.14);
+      border-radius: 999px; padding: .5rem 1rem;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .k-back:hover { color: var(--k-accent); }
+    .k-back svg { width: 1rem; height: 1rem; }
+    /* No-JS honesty: the app cannot run without JavaScript/WebGL. */
+    .k-noscript {
+      position: absolute; inset: 0; z-index: 5;
+      display: grid; place-items: center; text-align: center; padding: 2rem;
+    }
+    .k-noscript p { color: var(--k-ink); line-height: 1.6; max-width: 30ch; }
+    .k-noscript a { color: var(--k-accent); }
+    @media (prefers-reduced-motion: reduce) {
+      .k-back { backdrop-filter: none; -webkit-backdrop-filter: blur(10px); }
+    }
+
+    /* narrow screens: the back pill stays top-center, the app title drops
+       below it so the two never collide */
+    @media (max-width: 520px) {
+      .mandel .title { top: calc(env(safe-area-inset-top, 0px) + 62px); }
+    }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#stage">Skip to content</a>
+<header class="site-header">
+  <nav class="nav" aria-label="Primary">
+    <a class="brand" href="../../" aria-label="Koda &mdash; home">
+      <img src="../../assets/img/curl-mark.svg" alt="" width="30" height="30" />
+      <span>Koda</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="../../">Home</a></li>
+      <li><a href="../../about/">About</a></li>
+      <li><a href="../../now/">Now</a></li>
+      <li><a href="../../code/" aria-current="page">Code</a></li>
+    </ul>
+  </nav>
+</header>
+  <main class="stage" id="stage" aria-label="Tie-Dye Mandelbrot deep-zoom explorer">
+  <a class="k-back" href="../" aria-label="Back to Koda's Code">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+    <span>Koda&rsquo;s Code</span>
+  </a>
+  <noscript>
+    <div class="k-noscript">
+      <p>Tie-Dye Mandelbrot needs JavaScript and WebGL to run. <a href="../">Back to Koda&rsquo;s Code</a></p>
+    </div>
+  </noscript>
+
+  <div class="mandel">
+
+  <div class="mandel-stage"><canvas id="c"></canvas></div>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="ui">
+    <div class="title">
+      <span class="eyebrow">Koda&rsquo;s Code</span>
+      <h1>Tie-Dye Mandelbrot</h1>
+      <p>Deep-zoom explorer</p>
+    </div>
+    <div class="buttons">
+      <button id="bPause" type="button" aria-label="Pause animation" aria-pressed="false">
+        <svg class="pause-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6v12M16 6v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <svg class="play-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="hint" id="hint">Tap to dive &middot; Hold to sink &middot; Drag to pan &middot; Pinch to zoom &middot; Double-tap to surface</div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+  <div class="scrim" id="scrim"></div>
+  <section class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Appearance controls" tabindex="-1">
+    <button id="toolTab" class="tool-tab" type="button" aria-label="Open controls" aria-expanded="false" aria-controls="drawer">
+      <svg class="icon-glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.4 7.2V5.8a3.6 3.6 0 0 1 7.2 0v1.4M5.2 8.4h13.6c.7 0 1.2.5 1.2 1.2v7.9c0 .7-.5 1.2-1.2 1.2H5.2c-.7 0-1.2-.5-1.2-1.2V9.6c0-.7.5-1.2 1.2-1.2Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 13h16M10 12.2v1.6h4v-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg class="icon-close" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+    <div class="drawer-body" id="drawerBody" aria-hidden="true" inert>
+    <span class="drawer-grip" aria-hidden="true"></span>
+    <div class="drawer-head">
+      <h2>Appearance</h2>
+    </div>
+    <div class="group">
+      <h3 id="styleLabel">Render style</h3>
+      <div class="seg" role="group" aria-labelledby="styleLabel" id="styleSeg"></div>
+    </div>
+    <div class="group">
+      <h3 id="palLabel">Palette</h3>
+      <div class="swatches" role="group" aria-labelledby="palLabel" id="palSw"></div>
+    </div>
+    <div class="drawer-actions">
+      <button id="bResetView" class="ghost-btn" type="button">Reset view</button>
+      <button id="bResetLook" class="ghost-btn" type="button">Reset appearance</button>
+    </div>
+    <div class="group">
+      <h3 id="viewLabel">View details</h3>
+      <div class="readout" id="readout" role="status" aria-label="View details">
+        <div class="mag" id="rMag">&times;1</div>
+        <div class="row"><span class="k">Center</span><span class="v" id="rCenter">&mdash;</span></div>
+        <div class="row"><span class="k">Iterations</span><span class="v" id="rIter">&mdash;</span></div>
+        <div class="row qual" id="rQualRow" hidden><span class="k">Detail</span><span class="v" id="rQual">Adaptive</span></div>
+      </div>
+    </div>
+    </div>
+  </section>
+  <div class="status" id="status" role="alert" hidden>
+    <div class="status-card">
+      <h2 id="statusTitle">Something went wrong</h2>
+      <p id="statusMsg"></p>
+    </div>
+  </div>
+
+  </div>
+  </main>
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <div class="footer-brand">
+        <img src="../../assets/img/curl-mark.svg" alt="" width="34" height="34" />
+        <span>Koda</span>
+      </div>
+      <div class="footer-icons">
+        <a href="https://www.threads.com/@kodalivenow" aria-label="Koda on Threads" rel="me"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.263 11.097c-.03-3.486-1.92-5.586-5.111-5.586-2.13 0-3.922.963-4.863 2.499l2.062 1.438c.535-.843 1.272-1.543 2.628-1.543 1.528 0 2.318.85 2.544 2.431a15 15 0 0 0-2.236-.173c-4.125 0-6.068 1.867-6.068 4.336s1.943 3.99 4.804 3.99c3.139 0 5.013-2.115 5.781-4.735.798.361 1.348 1.204 1.348 2.47 0 3.387-3.907 5.232-7.22 5.232-4.885 0-8.077-3.207-8.077-8.424 0-6.392 4.223-10.487 9.9-10.487 3.808 0 5.69 1.671 6.97 3.914l2.108-1.475C21.44 2.078 18.331 0 13.663 0 6.227 0 1.168 5.277 1.168 12.934c0 7 4.953 11.066 10.856 11.066 4.878 0 9.809-2.846 9.809-7.716 0-2.545-1.46-4.231-3.569-5.187m-6.33 4.855c-1.077 0-2.026-.512-2.026-1.453 0-1.483 1.822-1.934 3.606-1.934.678 0 1.34.045 1.927.173-.422 1.927-1.671 3.215-3.508 3.214Z"/></svg></a>
+        <a href="https://www.instagram.com/kodalivenow" aria-label="Koda on Instagram" rel="me"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg></a>
+      </div>
+      <p class="footer-handle">@kodalivenow on Threads &amp; Instagram</p>
+    </div>
+    <div class="footer-meta">
+      <p>&copy; 2026 Koda</p>
+      <p class="footer-colophon">Designed, written, and built by me.</p>
+    </div>
+  </div>
+</footer>
+  <style>
+    .mandel {
+      color-scheme: dark;
+      --ink: #f7f4ee;
+      --muted: rgba(247, 244, 238, 0.62);
+      --faint: rgba(247, 244, 238, 0.38);
+      --glass: rgba(10, 12, 18, 0.62);
+      --line: rgba(255, 255, 255, 0.16);
+      --accent: #8fb8ff;
+      font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      position: absolute;
+      inset: 0;
+    }
+
+
+    .mandel-stage { position: absolute; inset: 0; }
+    .mandel-stage canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: grab;
+    }
+    .mandel-stage canvas:active { cursor: grabbing; }
+
+    .ui { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+
+    .title {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 0px) + 14px);
+      left: 18px;
+    }
+    .title .eyebrow {
+      display: block;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 5px;
+    }
+    .title h1 {
+      margin: 0;
+      font-family: "Clash Display", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      font-size: 23px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      line-height: 1.05;
+    }
+    .title p {
+      margin: 3px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    .buttons {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 0px) + 14px);
+      right: 14px;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .buttons button {
+      appearance: none;
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.025) 42%),
+        rgba(8, 10, 16, 0.58);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.18),
+        0 12px 36px rgba(0,0,0,.28);
+      color: var(--ink);
+      cursor: pointer;
+      backdrop-filter: blur(22px) saturate(150%);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
+      transition: transform 180ms ease;
+    }
+    .buttons button:active { transform: scale(0.92); }
+    .buttons button svg { width: 22px; height: 22px; }
+    .buttons button .play-icon { display: none; }
+    .buttons button[aria-pressed="true"] .pause-icon { display: none; }
+    .buttons button[aria-pressed="true"] .play-icon { display: block; margin-left: 2px; }
+
+    /* film grain: a static SVG turbulence overlay above the canvas, below the UI */
+    .grain {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      opacity: 0.14; mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='0.55'/></svg>");
+    }
+
+    /* tool tab: the drawer's pull-handle at the bottom viewport edge.
+       Toolbox glyph when closed, X glyph when open — the same family
+       pattern as the Kaleidoscope. The closed drawer is translated 100%
+       of its own height, so the 46px handle peeks above the bottom edge. */
+    .tool-tab {
+      position: absolute;
+      top: -46px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 66px;
+      height: 47px;
+      padding: 0 0 3px;
+      appearance: none;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      border-radius: 18px 18px 0 0;
+      background: rgba(13, 15, 23, 0.94);
+      color: var(--ink);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .tool-tab::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 6px;
+      width: 22px;
+      height: 2px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.28);
+      transform: translateX(-50%);
+    }
+    .tool-tab svg { width: 22px; height: 22px; transform: translateY(-2px); }
+    /* Icon swap driven purely by aria-expanded, so every close path
+       (toggle, scrim, Escape) stays in sync with the visible icon. */
+    .tool-tab .icon-close { display: none; }
+    .tool-tab[aria-expanded="true"] .icon-glyph { display: none; }
+    .tool-tab[aria-expanded="true"] .icon-close { display: block; }
+
+    .scrim {
+      position: absolute; inset: 0; z-index: 5;
+      background: rgba(0, 0, 0, 0.38);
+      opacity: 0; pointer-events: none;
+      transition: opacity 300ms ease;
+    }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+
+    /* bottom-sheet appearance drawer: slides out of / back into the
+       bottom viewport edge, same motion language as the Kaleidoscope */
+    .drawer {
+      position: absolute;
+      left: 50%; bottom: 0;
+      width: min(680px, 100vw - 24px);
+      max-height: 74dvh;
+      transform: translateX(-50%) translateY(100%);
+      transition: transform 420ms cubic-bezier(.22,.75,.18,1);
+      background: rgba(13, 15, 23, 0.94);
+      border: 1px solid var(--line);
+      border-bottom: none;
+      border-radius: 22px 22px 0 0;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      z-index: 6;
+      pointer-events: auto;
+    }
+    .drawer.open { transform: translateX(-50%) translateY(0); }
+    /* inner scroll container: the drawer itself must not clip, or the
+       handle tab riding its top edge would be cut off */
+    .drawer-body {
+      max-height: 74dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 8px 20px calc(env(safe-area-inset-bottom, 0px) + 22px);
+    }
+    .drawer-grip {
+      display: block; width: 40px; height: 4px; border-radius: 2px;
+      background: var(--faint); margin: 6px auto 10px;
+    }
+    .drawer-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .drawer h2 {
+      margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+    }
+    .drawer h2:focus { outline: none; }
+    .drawer h3 {
+      margin: 18px 0 10px; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .seg { display: flex; flex-direction: column; gap: 8px; }
+    .seg-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 14px;
+      padding: 11px 14px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--ink);
+      font: inherit;
+      width: 100%;
+      transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    }
+    .seg-btn .seg-name { display: block; font-size: 14.5px; font-weight: 600; letter-spacing: 0.01em; }
+    .seg-btn .seg-desc { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; letter-spacing: 0.02em; }
+    .seg-btn[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: rgba(143, 184, 255, 0.08);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(143, 184, 255, 0.22);
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px 10px;
+    }
+    .sw {
+      appearance: none; background: none; border: none; padding: 6px 2px;
+      cursor: pointer; color: var(--ink); font: inherit;
+      display: flex; flex-direction: column; align-items: center; gap: 7px;
+      border-radius: 12px;
+      min-height: 48px;
+    }
+    .sw .chip {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
+    .sw[aria-pressed="true"] .chip {
+      border-color: #fff;
+      box-shadow: 0 0 0 2px var(--accent), 0 0 14px rgba(143, 184, 255, 0.35);
+    }
+    .sw .sw-name { font-size: 10px; color: var(--muted); letter-spacing: 0.03em; }
+
+    .drawer-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .ghost-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink);
+      font: inherit; font-size: 13px; font-weight: 500; letter-spacing: 0.03em;
+      padding: 11px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform 180ms ease, background 180ms ease;
+    }
+    .ghost-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.06); }
+
+    /* full-screen status overlay for hard failures / context restore */
+    .status {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(5, 5, 8, 0.85);
+      padding: 32px; text-align: center;
+    }
+    .status[hidden] { display: none; }
+    .status-card h2 { margin: 0 0 8px; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+    .status-card p { margin: 0 auto; font-size: 13.5px; line-height: 1.55; color: var(--muted); max-width: 330px; }
+
+    .mandel :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+
+    .hint {
+      position: absolute;
+      left: 14px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 62px);
+      max-width: 42vw;
+      font-size: 11.5px;
+      line-height: 1.55;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+      background: var(--glass);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 7px 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: opacity 1.2s ease, visibility 1.2s ease;
+    }
+    .hint.gone { opacity: 0; visibility: hidden; }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
+      transform: translateX(-50%) translateY(8px);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--ink);
+      background: var(--glass);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 18px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity: 0;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .readout {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 16px 13px;
+      font-variant-numeric: tabular-nums;
+    }
+    .readout .mag {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      line-height: 1.1;
+    }
+    .readout .row {
+      margin-top: 5px;
+      font-size: 11.5px;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .readout .row .k { color: var(--faint); text-transform: uppercase; font-size: 10px; letter-spacing: 0.09em; }
+    .readout .row .v { color: var(--ink); }
+    .readout .row.qual .v { color: var(--accent); }
+    .readout .row[hidden] { display: none; }
+
+    @media (max-width: 520px) {
+      .title h1 { font-size: 18px; }
+      .title .eyebrow { font-size: 9.5px; margin-bottom: 4px; }
+      .title p { font-size: 11px; }
+      .title { left: 14px; }
+      .buttons { right: 10px; gap: 6px; }
+      .buttons button { width: 44px; height: 44px; }
+      .buttons button svg { width: 20px; height: 20px; }
+      .hint {
+        max-width: 52vw;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 58px);
+      }
+      .toast { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }
+      .readout .row .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .readout .mag { font-size: 17px; }
+      .swatches { grid-template-columns: repeat(4, 1fr); }
+    }
+  </style>
+
+<script>
+
+(() => {
+  'use strict';
+  const canvas = document.getElementById('c');
+  const hint = document.getElementById('hint');
+  const toastEl = document.getElementById('toast');
+  const rMag = document.getElementById('rMag');
+  const rCenter = document.getElementById('rCenter');
+  const rIter = document.getElementById('rIter');
+  const rQualRow = document.getElementById('rQualRow');
+  const rQual = document.getElementById('rQual');
+  const bPause = document.getElementById('bPause');
+  const toolTab = document.getElementById('toolTab');
+  const drawer = document.getElementById('drawer');
+  const scrim = document.getElementById('scrim');
+  const drawerBody = document.getElementById('drawerBody');
+  const styleSeg = document.getElementById('styleSeg');
+  const palSw = document.getElementById('palSw');
+  const bResetView = document.getElementById('bResetView');
+  const bResetLook = document.getElementById('bResetLook');
+  const statusEl = document.getElementById('status');
+  const statusTitle = document.getElementById('statusTitle');
+  const statusMsg = document.getElementById('statusMsg');
+
+  const REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function showStatus(msg, title){
+    statusTitle.textContent = title || 'Something went wrong';
+    statusMsg.textContent = msg;
+    statusEl.hidden = false;
+  }
+  function hideStatus(){ statusEl.hidden = true; }
+
+  const gl = canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false });
+  // Phase C: subpixel speckle control needs screen-space derivatives
+  // (OES_standard_derivatives — universally available on iOS Safari).
+  // Absent -> the fragment shader defines fwidth(x) as 0, i.e. the
+  // pre-Phase-C look, never a compile failure.
+  const derivExt = gl.getExtension('OES_standard_derivatives');
+  if (!gl) {
+    showStatus('WebGL is unavailable on this device, so the fractal cannot render.', 'WebGL unavailable');
+    return;
+  }
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ---------- double-double arithmetic (Dekker) ----------
+  // A double-double is [hi, lo] with ~32 significant decimal digits. This is
+  // what lets the view center and the reference orbit stay exact down to
+  // ~1e-30 magnification, far past float64's ~1e-16 wall.
+  const DD_SPLIT = 134217729; // 2^27 + 1
+  function ddTwoSum(a, b){
+    const s = a + b, v = s - a;
+    return [s, (a - (s - v)) + (b - v)];
+  }
+  function ddQuickTwoSum(a, b){ // valid when |a| >= |b|; harmless otherwise for our uses
+    const s = a + b;
+    return [s, b - (s - a)];
+  }
+  function ddTwoProd(a, b){
+    const p = a * b;
+    const c = DD_SPLIT * a, ah = c - (c - a), al = a - ah;
+    const d = DD_SPLIT * b, bh = d - (d - b), bl = b - bh;
+    return [p, ((ah * bh - p) + ah * bl + al * bh) + al * bl];
+  }
+  const ddFromNum = x => [x, 0];
+  const ddToNum = a => a[0] + a[1];
+  function ddAdd(a, b){
+    const se = ddTwoSum(a[0], b[0]);
+    const e = se[1] + a[1] + b[1];
+    return ddQuickTwoSum(se[0], e);
+  }
+  function ddSub(a, b){ return ddAdd(a, [-b[0], -b[1]]); }
+  function ddMul(a, b){
+    const pe = ddTwoProd(a[0], b[0]);
+    const e = pe[1] + a[0]*b[1] + a[1]*b[0];
+    return ddQuickTwoSum(pe[0], e);
+  }
+  function ddLerp(a, b, e){ // a, b double-double; e plain number 0..1
+    return ddAdd(a, ddMul(ddFromNum(e), ddSub(b, a)));
+  }
+  // complex double-double: {x: dd, y: dd}; returns z^2 + c
+  function cddSqrAdd(z, c){
+    const xx = ddMul(z.x, z.x), yy = ddMul(z.y, z.y), xy = ddMul(z.x, z.y);
+    return {
+      x: ddAdd(ddSub(xx, yy), c.x),
+      y: ddAdd(ddAdd(xy, xy), c.y)
+    };
+  }
+
+  const VSRC = `
+    attribute vec2 a_pos;
+    void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }
+  `;
+  const FSRC = (derivExt
+      ? '#extension GL_OES_standard_derivatives : enable\n'
+      : '#define fwidth(x) (0.0)\n') + `
+    #ifdef GL_FRAGMENT_PRECISION_HIGH
+      precision highp float;
+    #else
+      precision mediump float;
+    #endif
+    uniform vec2 u_res;
+    uniform vec2 u_center;   // absolute center (direct mode only)
+    uniform vec2 u_delta;    // center minus reference anchor, tiny (perturbation mode)
+    uniform float u_scale;
+    uniform float u_dye;
+    uniform float u_iter;
+    uniform float u_flow;
+    uniform float u_blend;    // renderer domain: 0 = classic float32, 1 = perturbation; animates 0..1 over 3 frames on switch
+    uniform float u_orbitLen; // valid reference-orbit texels (Zhuoran exhaustion guard)
+    uniform sampler2D u_orbit;
+    uniform float u_orbitW;
+    uniform float u_orbitH;
+    uniform vec3 u_palA;
+    uniform vec3 u_palB;
+    uniform vec3 u_palC;
+    uniform vec3 u_palD;
+    uniform float u_styleA;  // crossfade pair: style changes blend A -> B
+    uniform float u_styleB;  // instead of hard-flipping, over ~0.2 s
+    uniform float u_xfade;
+
+    float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+
+    vec3 palMix(float t){
+      t = fract(t);
+      vec3 col = mix(u_palA, u_palB, smoothstep(0.0, 0.33, t));
+      col = mix(col, u_palC, smoothstep(0.33, 0.66, t));
+      col = mix(col, u_palD, smoothstep(0.66, 1.0, t));
+      return col;
+    }
+
+    // Phase C anti-speckle: every style paints with terms that oscillate in
+    // the smooth-iteration / trap fields (bands, hue indexes, filaments).
+    // Where such a field varies faster than pixels resolve (fwidth >> 1
+    // cycle/px) the oscillation would alias into subpixel speckle, so each
+    // term fades to its analytic local mean there. Where the field IS
+    // resolvable the fade is ~1 and the look is unchanged. aaFade maps
+    // "cycles per pixel" to a 1 (resolvable) -> 0 (unresolvable) weight.
+    float aaFade(float w){ return 1.0/(1.0 + w); }
+
+    // Escape-time coloring shared by both renderer domains, so the
+    // domain switch is a true crossfade of finished color. Parametrized by
+    // style (st) so look changes crossfade A -> B instead of hard-flipping.
+    vec3 shadeStyle(float st, float iter, float m2, float escaped){
+      vec3 col;
+      if(escaped < 0.5){
+        col = u_palA*0.10 + vec3(0.008, 0.002, 0.016);
+      } else {
+        float sn = iter + 1.0 - log2(0.5*log2(max(m2, 2.0001)));
+        float bands = sn*0.55;
+        vec3 palMean = (u_palA + u_palB + u_palC + u_palD)*0.25;
+        // color flows along the escape bands themselves, so every bit of
+        // motion follows the fractal's own structure instead of washing over it
+        float idx = fract(bands*0.085 + u_flow + u_dye);
+        float aaHue = aaFade(fwidth(bands)*0.085); // hue-index resolvability
+
+        if(st < 0.5){
+          // flow bands: the classic tie-dye wash
+          vec3 dye = mix(palMean, palMix(idx), aaHue);
+          float shade = 0.66 + 0.34*cos(fract(bands)*6.2831853);
+          shade = mix(0.66, shade, aaFade(fwidth(bands))); // mean shade = 0.66
+          col = dye*shade;
+          col += vec3(1.0, 0.95, 1.0)*exp(-sn*0.30)*0.30;
+        } else if(st < 1.5){
+          // contour lines: electric topography
+          float t = fract(bands*0.30);
+          float line = smoothstep(0.10, 0.02, min(t, 1.0-t));
+          line = mix(0.12, line, aaFade(fwidth(bands)*0.30)); // mean line density
+          col = mix(palMean, palMix(idx), aaHue)*(0.12 + line*1.5);
+          col += vec3(1.0)*exp(-sn*0.35)*0.15;
+        } else {
+          // nebula glow: soft and dreamy
+          float g = exp(-sn*0.10);
+          float hue = fract(sn*0.035 + u_flow*0.7 + u_dye);
+          col = mix(palMean, palMix(hue), aaFade(fwidth(sn)*0.035))*(0.22 + g*1.35);
+        }
+      }
+      return col;
+    }
+
+    void main(){
+      vec2 frag = gl_FragCoord.xy;
+      float minDim = min(u_res.x, u_res.y);
+      vec2 p = vec2(frag.x-0.5*u_res.x, frag.y-0.5*u_res.y)/minDim;
+
+      // Both renderer domains compute into their own (iter, m2); u_blend
+      // crossfades the two shaded outputs over 3 frames so the domain switch
+      // is never a single-frame pop. Outside the switch only one side runs.
+      float iterC = 0.0, m2C = 0.0;
+      float iterP = 0.0, m2P = 0.0;
+      if(u_blend < 0.999){
+        // classic float32 path: absolute coordinates (shallow zoom / fallback)
+        vec2 c = u_center + p*u_scale;
+        vec2 z = vec2(0.0);
+        for(int i=0;i<8192;i++){
+          if(float(i) >= u_iter) break;
+          z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+          m2C = dot(z,z);
+          if(m2C > 4.0) break;
+          iterC += 1.0;
+        }
+      }
+      if(u_blend > 0.001){
+        // Perturbation path with Zhuoran (2021) in-orbit rebase: when the
+        // pixel's orbit has diverged from the reference's (|z| < |d|) or the
+        // reference is exhausted, the delta restarts at the full z against
+        // the SAME orbit from iteration 0. Mathematically exact, no new
+        // reference: this is what makes re-anchoring pop-free, and it keeps
+        // every pixel correct while the CPU rebuilds the orbit in the
+        // background. It also retires the old "dc is small" assumption: far
+        // pixels self-convert to well-conditioned near-direct iteration.
+        vec2 dc = u_delta + p*u_scale;
+        vec2 d = vec2(0.0);
+        vec2 zr_prev = vec2(0.0); // R_0, the reference before its first update
+        float refF = 1.0;         // next fetched texel is R_{refIdx+1}
+        for(int i=0;i<8192;i++){
+          if(float(i) >= u_iter) break;
+          vec2 zr = texture2D(u_orbit,
+            vec2((mod(refF,u_orbitW)+0.5)/u_orbitW, (floor(refF/u_orbitW)+0.5)/u_orbitH)).xy;
+          // D_{i+1} = 2*R_i*D_i + D_i^2 + dc  (uses the pre-update reference)
+          d = vec2(2.0*(zr_prev.x*d.x - zr_prev.y*d.y) + d.x*d.x - d.y*d.y + dc.x,
+                   2.0*(zr_prev.x*d.y + zr_prev.y*d.x) + 2.0*d.x*d.y + dc.y);
+          d = clamp(d, vec2(-1e10), vec2(1e10)); // inf/NaN guard, never hit in practice
+          vec2 z = zr + d; // R_{i+1} + D_{i+1} = Z_{i+1}: exactly what the classic path tests
+          m2P = dot(z,z);
+          if(m2P > 4.0) break;
+          if(m2P < dot(d,d) || refF >= u_orbitLen){
+            d = z;                // delta := full z ...
+            zr_prev = vec2(0.0);  // ... against the same orbit from iteration 0
+            refF = 1.0;
+          } else {
+            zr_prev = zr;
+            refF += 1.0;
+          }
+          iterP += 1.0;
+        }
+      }
+
+      // Style crossfade: when u_xfade is mid-flight both style paths are
+      // shaded and mixed; at rest only one side runs, so the crossfade costs
+      // nothing outside the ~0.2 s transition.
+      vec3 col;
+      if(u_xfade < 0.001){
+        col = mix(shadeStyle(u_styleA, iterC, m2C, step(4.0, m2C)),
+                  shadeStyle(u_styleA, iterP, m2P, step(4.0, m2P)), u_blend);
+      } else if(u_xfade > 0.999){
+        col = mix(shadeStyle(u_styleB, iterC, m2C, step(4.0, m2C)),
+                  shadeStyle(u_styleB, iterP, m2P, step(4.0, m2P)), u_blend);
+      } else {
+        vec3 colA = mix(shadeStyle(u_styleA, iterC, m2C, step(4.0, m2C)),
+                        shadeStyle(u_styleA, iterP, m2P, step(4.0, m2P)), u_blend);
+        vec3 colB = mix(shadeStyle(u_styleB, iterC, m2C, step(4.0, m2C)),
+                        shadeStyle(u_styleB, iterP, m2P, step(4.0, m2P)), u_blend);
+        col = mix(colA, colB, u_xfade);
+      }
+      float vig = smoothstep(1.15, 0.30, length(p));
+      col *= mix(0.50, 1.0, vig);
+      col += (hash(frag)-0.5)*0.018;
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  let prog = null, buf = null, aPos = 0, orbitTex = null;
+  let U = {};
+  let palSnap = true; // force palette re-upload (also after a context restore)
+
+  function compileShader(type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+      const log = gl.getShaderInfoLog(s) || 'unknown shader error';
+      throw new Error('Shader compile failed: ' + log);
+    }
+    return s;
+  }
+  // initGL builds every GL object. Called once at startup and again after a
+  // context restore (all GL objects are invalid then); CPU-side state
+  // (orbitData, palettes, view) survives, so the fractal resumes seamlessly.
+  function initGL(){
+    prog = gl.createProgram();
+    gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, VSRC));
+    gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, FSRC));
+    gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS))
+      throw new Error('Program link failed: ' + (gl.getProgramInfoLog(prog) || 'unknown error'));
+    gl.useProgram(prog);
+
+    buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+    aPos = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    U = {};
+    for(const n of ['u_res','u_center','u_delta','u_scale','u_dye','u_iter','u_flow',
+                    'u_blend','u_orbitLen','u_orbit','u_orbitW','u_orbitH',
+                    'u_palA','u_palB','u_palC','u_palD','u_styleA','u_styleB','u_xfade']){
+      U[n] = gl.getUniformLocation(prog, n);
+    }
+
+    if(floatTexExt){
+      orbitTex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, orbitTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.uniform1i(U.u_orbit, 0);
+      if(orbitLen > 0)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ORBIT_W, ORBIT_H, 0, gl.RGBA, gl.FLOAT, orbitData);
+    }
+    gl.uniform1f(U.u_orbitW, ORBIT_W);
+    gl.uniform1f(U.u_orbitH, ORBIT_H);
+    gl.uniform1f(U.u_styleA, styleA);
+    gl.uniform1f(U.u_styleB, styleB);
+    gl.uniform1f(U.u_xfade, xfade);
+    palSnap = true;
+  }
+
+  // ---------- palettes & styles ----------
+  const PALETTES = [
+    { name: 'Tie-Dye',      colors: [[0.62,0.28,0.95],[0.10,0.75,0.90],[1.00,0.45,0.75],[1.00,0.80,0.25]] },
+    { name: 'Neon Nights',  colors: [[1.00,0.08,0.85],[0.00,1.00,1.00],[0.45,1.00,0.10],[0.25,0.25,1.00]] },
+    { name: 'Sunset Freak', colors: [[0.35,0.05,0.45],[1.00,0.15,0.50],[1.00,0.50,0.10],[1.00,0.85,0.30]] },
+    { name: 'Deep Ocean',   colors: [[0.02,0.10,0.40],[0.00,0.70,0.80],[0.30,1.00,0.90],[0.50,0.20,1.00]] },
+    { name: 'Candy Trip',   colors: [[1.00,0.40,0.80],[1.00,0.95,0.40],[0.40,1.00,0.70],[0.70,0.50,1.00]] },
+    { name: 'Inferno',      colors: [[0.50,0.02,0.02],[1.00,0.10,0.00],[1.00,0.50,0.00],[1.00,0.90,0.40]] },
+    { name: 'Ultraviolet',  colors: [[0.15,0.00,0.50],[0.60,0.10,1.00],[0.90,0.80,1.00],[0.20,0.90,1.00]] },
+    { name: 'Pastel Dream', colors: [[1.00,0.70,0.80],[1.00,0.85,0.70],[0.60,0.85,1.00],[0.80,0.70,1.00]] }
+  ];
+  const STYLES = [
+    { name: 'Flow Bands',    desc: 'Soft dye bands flowing along the escape contours' },
+    { name: 'Contour Lines', desc: 'Electric topographic lines over the dye wash' },
+    { name: 'Nebula Glow',   desc: 'A soft, luminous haze for a dreamier look' }
+  ];
+
+  let palIdx = 0, styleIdx = 0;
+  try {
+    const saved = JSON.parse(localStorage.getItem('mandel-look') || '{}');
+    if(Number.isInteger(saved.pal) && saved.pal >= 0 && saved.pal < PALETTES.length) palIdx = saved.pal;
+    if(Number.isInteger(saved.style) && saved.style >= 0 && saved.style < STYLES.length) styleIdx = saved.style;
+  } catch (_) { /* private mode etc. */ }
+  function saveLook(){
+    try { localStorage.setItem('mandel-look', JSON.stringify({ pal: palIdx, style: styleIdx })); }
+    catch (_) { /* ignore */ }
+  }
+
+  // Palette changes crossfade over ~0.2 s: the uniforms ease toward their
+  // targets every frame instead of hard-flipping. Reduced motion snaps.
+  const palCur = new Float32Array(12);
+  const palTarget = new Float32Array(12);
+  let palSettled = true;
+  function uploadPalette(){
+    gl.uniform3f(U.u_palA, palCur[0], palCur[1], palCur[2]);
+    gl.uniform3f(U.u_palB, palCur[3], palCur[4], palCur[5]);
+    gl.uniform3f(U.u_palC, palCur[6], palCur[7], palCur[8]);
+    gl.uniform3f(U.u_palD, palCur[9], palCur[10], palCur[11]);
+  }
+  function applyPalette(){
+    const cols = PALETTES[palIdx].colors;
+    for(let i=0;i<4;i++){
+      palTarget[i*3] = cols[i][0]; palTarget[i*3+1] = cols[i][1]; palTarget[i*3+2] = cols[i][2];
+    }
+    if(REDUCED || palSnap){
+      for(let i=0;i<12;i++) palCur[i] = palTarget[i];
+      palSettled = true; palSnap = false;
+      uploadPalette();
+    } else {
+      palSettled = false;
+    }
+  }
+  function pumpPalette(dt){
+    if(palSettled) return;
+    const k = 1 - Math.exp(-dt*12);
+    let maxd = 0;
+    for(let i=0;i<12;i++){
+      const d = palTarget[i]-palCur[i];
+      palCur[i] += d*k;
+      if(Math.abs(d) > maxd) maxd = Math.abs(d);
+    }
+    uploadPalette();
+    if(maxd < 0.002){
+      for(let i=0;i<12;i++) palCur[i] = palTarget[i];
+      uploadPalette();
+      palSettled = true;
+    }
+  }
+
+  // Style changes crossfade in the shader (u_styleA -> u_styleB via u_xfade)
+  // over ~0.2 s; at rest only one style path is shaded. Reduced motion snaps.
+  let styleA = styleIdx, styleB = styleIdx, xfade = 1, xfadeTarget = 1;
+  function setStyle(i){
+    if(i === styleIdx) return;
+    styleA = (xfadeTarget === 1) ? styleB : styleA;
+    styleB = i; styleIdx = i;
+    if(REDUCED){ styleA = styleB; xfade = xfadeTarget = 1; }
+    else { xfade = 0; xfadeTarget = 1; }
+    saveLook(); updateStyleSeg();
+    toast('Style: ' + STYLES[i].name);
+    markInteract();
+  }
+  function pumpStyleXfade(dt){
+    if(xfade === xfadeTarget) return;
+    xfade += (xfadeTarget-xfade)*(1 - Math.exp(-dt*14));
+    if(Math.abs(xfadeTarget-xfade) < 0.004){
+      xfade = xfadeTarget;
+      if(xfade === 1) styleA = styleB; // collapse: one path again
+    }
+  }
+
+  // ---------- state ----------
+  const S0 = 2.6;                // initial scale: complex units across the short side
+  const C0x = -0.75, C0y = 0;    // initial center: the classic full-set view
+
+  // Perturbation needs float textures for the reference orbit. Without them we
+  // fall back to the classic float32 path (and its ~50,000x precision floor).
+  const floatTexExt = gl.getExtension('OES_texture_float');
+  // Gating (2026-09-21): the perturbation renderer + reference-orbit machinery
+  // engage only past PERT_DEPTH. float32 is provably exact at shallower zooms
+  // (measured classic-vs-perturbation divergence starts ~1e5; 5x safety margin),
+  // and firing the rebase on every shallow tap-dive produced noisy banding on
+  // real GPUs whenever the tap target's orbit escapes: the reference tail is
+  // then capped garbage and late-escaping pixels get chaotic iteration counts.
+  const PERT_DEPTH = 20000;
+  let forceClassic = false;   // debug override via __mandel.setDirect(true)
+  let pertActive = false;     // per-frame: perturbation currently engaged
+  let pertLatch = false;      // tapDive latched perturbation for its whole duration
+  let blend = 0, blendTarget = 0, blendFrom = 0, blendT = 0; // D3: renderer-domain crossfade 0..1
+  const MIN_SCALE = floatTexExt ? S0*1e-30 : S0/50000;
+
+  let center = { x: ddFromNum(C0x), y: ddFromNum(C0y) }; // double-double, exact to ~1e-30
+  let scale = S0;                                       // float64 scalar, plenty
+  let dyeBase = Math.random();    // every visit opens on a fresh hue rotation
+  let flowSec = 0;              // band-flow clock: color streams along the escape bands
+  let timeSec = 0;
+  let paused = false;
+  let lastInteract = -10;
+  let maxIter = 170;
+
+  // ---------- perturbation: reference orbit ----------
+  const ORBIT_W = 2048, ORBIT_H = 4, ORBIT_MAX = ORBIT_W*ORBIT_H; // 8192
+  const orbitData = new Float32Array(ORBIT_MAX*4);
+  let orbitLen = 0;
+  let refC = { x: ddFromNum(C0x), y: ddFromNum(C0y) }; // anchor of the reference orbit
+
+  // Anchor the reference orbit at point p (double-double). The orbit is
+  // computed in double-double on the CPU; only its float32-rounded values
+  // reach the shader, which is all the delta math needs.
+  //
+  // Phase A scheduling (D2/D5/D6): rebaseAt() NEVER builds synchronously.
+  // It queues a request; the build is chunked across animation frames
+  // (REBASE_CHUNK double-double iterations per frame), so no frame ever
+  // stalls on the multi-thousand-iteration CPU orbit. Drift re-anchoring uses
+  // a hysteresis band (fire past 0.75*scale, re-arm below 0.25*scale) plus a
+  // 400 ms debounce, so a gesture cannot trigger rebuilds on consecutive
+  // frames. The orbit is pre-sized at 2x the iteration budget (+256 texels of
+  // headroom) so budget-driven rebuilds do not fire mid-dive. With Zhuoran
+  // in-orbit rebase in the shader, frames rendered while a rebuild is in
+  // flight stay exact: the anchor point is a quality choice, not a
+  // correctness requirement.
+  let rebaseJob = null;      // in-flight chunked build {p, n, need, z}
+  let rebaseQueued = null;   // latest coalesced request awaiting the debounce window
+  let rebaseNotBefore = 0;   // earliest timestamp a build may start
+  let driftArmed = true;     // hysteresis arm for drift re-anchoring
+  let texC = { x: ddFromNum(C0x), y: ddFromNum(C0y) }; // anchor of the BOUND orbit texture
+  const REBASE_DEBOUNCE_MS = 400;
+  const REBASE_CHUNK = 1024;
+
+  function requestRebase(p, iterHint){
+    if(!floatTexExt || forceClassic) return;
+    rebaseQueued = { p: { x: [p.x[0], p.x[1]], y: [p.y[0], p.y[1]] }, iterHint: iterHint || 0 };
+    refC = { x: [p.x[0], p.x[1]], y: [p.y[0], p.y[1]] }; // drift measured vs the in-flight anchor
+    driftArmed = false;
+    if(window.__mandel) window.__mandel._rebaseRequests = (window.__mandel._rebaseRequests|0)+1;
+  }
+  function rebaseAt(p, iterHint){ requestRebase(p, iterHint); } // deferred; see pumpRebaseJob
+  function rebaseNow(p, iterHint){ // immediate build: debug hooks + init only, never on a tween frame
+    if(!floatTexExt || forceClassic) return;
+    if(window.__mandel && tweens.length > 0)
+      window.__mandel._rebaseSyncTween = (window.__mandel._rebaseSyncTween|0)+1;
+    refC = { x: [p.x[0], p.x[1]], y: [p.y[0], p.y[1]] };
+    const m = Math.max(maxIter, iterHint || 0);
+    const need = Math.min(ORBIT_MAX, Math.max(256, Math.ceil(m*2) + 256));
+    const t0 = performance.now();
+    let z = { x: [0,0], y: [0,0] };
+    let n = 0;
+    for(; n < need; n++){
+      orbitData[n*4]   = z.x[0];
+      orbitData[n*4+1] = z.y[0];
+      z = cddSqrAdd(z, refC);
+      // keep the tail finite past reference escape: cap magnitude at 1e10.
+      // With Zhuoran in-orbit rebase in the shader, pixels whose orbit
+      // diverges from an escaping reference self-correct against the same
+      // orbit long before the tail matters.
+      const m2 = z.x[0]*z.x[0] + z.y[0]*z.y[0];
+      if(m2 > 1e20){
+        const s = 1e10/Math.sqrt(m2);
+        z = { x: [z.x[0]*s, 0], y: [z.y[0]*s, 0] };
+      }
+    }
+    orbitLen = need;
+    texC = { x: [refC.x[0], refC.x[1]], y: [refC.y[0], refC.y[1]] };
+    gl.bindTexture(gl.TEXTURE_2D, orbitTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ORBIT_W, ORBIT_H, 0, gl.RGBA, gl.FLOAT, orbitData);
+    window.__mandel && (window.__mandel._lastRebaseMs = performance.now()-t0);
+  }
+  function pumpRebaseJob(){
+    const job = rebaseJob, t0 = performance.now();
+    let n = job.n, z = job.z;
+    const stop = Math.min(job.need, n + REBASE_CHUNK);
+    for(; n < stop; n++){
+      orbitData[n*4]   = z.x[0];
+      orbitData[n*4+1] = z.y[0];
+      z = cddSqrAdd(z, job.p);
+      const m2 = z.x[0]*z.x[0] + z.y[0]*z.y[0];
+      if(m2 > 1e20){
+        const s = 1e10/Math.sqrt(m2);
+        z = { x: [z.x[0]*s, 0], y: [z.y[0]*s, 0] };
+      }
+    }
+    job.n = n; job.z = z;
+    const ms = performance.now()-t0;
+    if(window.__mandel && ms > window.__mandel._rebaseChunkMaxMs)
+      window.__mandel._rebaseChunkMaxMs = ms;
+    if(n >= job.need){
+      orbitLen = job.need;
+      texC = { x: [job.p.x[0], job.p.x[1]], y: [job.p.y[0], job.p.y[1]] };
+      gl.bindTexture(gl.TEXTURE_2D, orbitTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ORBIT_W, ORBIT_H, 0, gl.RGBA, gl.FLOAT, orbitData);
+      rebaseJob = null;
+      rebaseNotBefore = performance.now() + REBASE_DEBOUNCE_MS;
+    }
+  }
+
+  const tweens = [];
+  function tween(dur, apply, done, dive){
+    // D4: non-dive tweens (reset / double-tap surface) freeze the renderer
+    // domain for their whole duration; the domain is decided at tween start.
+    tweens.push({ t: 0, dur, apply, done, dive: !!dive,
+                  domainLock: !dive, domainAtStart: blendTarget });
+  }
+  const easeInOut = t => t < 0.5 ? 2*t*t : 1-Math.pow(-2*t+2, 2)/2;
+
+  // ---------- Phase B: adaptive quality tiers + thermal governor ----------
+  // Per-frame cost is pixels x iterations. While the user is interacting the
+  // view is in motion, so detail beyond perception is wasted heat: the
+  // interaction tier renders smaller and iterates less, then eases back to
+  // the governor level on settle (never a hard cut). The governor watches
+  // real frame times and steps the sustained budget down in discrete levels
+  // only under persistent pressure, restoring it after persistent headroom.
+  // The ambient band-flow keeps its character throughout: nothing here
+  // freezes the art to save power.
+  const GOV = [
+    { s: 1.00, i: 1.00 },
+    { s: 0.88, i: 0.92 },
+    { s: 0.75, i: 0.82 },
+    { s: 0.62, i: 0.70 }
+  ];
+  // Phase C: decisively cheaper interaction tier — px.iters drops ~49% vs
+  // Phase B (0.50^2*0.55 vs 0.62^2*0.70). Dive kinematics untouched; only
+  // render quality moves, and it always eases (never a hard cut).
+  const TIER_INTERACT = { s: 0.50, i: 0.55 };
+  const MP_BUDGET = 4000000; // 4-megapixel render budget (Kaleidoscope bar)
+  let govLevel = 0;
+  let scaleCur = 1, iterMulCur = 1; // eased toward their targets every frame
+  let iterEff = 170;
+  let lastRaw = performance.now();
+  let overN = 0, headN = 0;
+
+  function resize(){
+    const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+    if(cssW < 2 || cssH < 2) return;
+    const dpr0 = Math.min(window.devicePixelRatio || 1, 2);
+    let dpr = dpr0;
+    const native = cssW*dpr0*cssH*dpr0;
+    if(native > MP_BUDGET) dpr = dpr0*Math.sqrt(MP_BUDGET/native); // the MP budget wins on huge screens
+    const sq = Math.max(0.2, Math.round(scaleCur*20)/20); // quantize: fewer reallocations mid-ease
+    const w = Math.max(2, Math.round(cssW*dpr*sq));
+    const h = Math.max(2, Math.round(cssH*dpr*sq));
+    if(canvas.width !== w || canvas.height !== h){
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+  }
+  window.addEventListener('resize', resize);
+
+  function pumpQuality(now, dt){
+    const rawMs = now - lastRaw;
+    lastRaw = now;
+    // thermal governor: sustained frame-time pressure steps the budget down
+    // a level; sustained headroom steps it back up. Discrete levels only.
+    if(rawMs > 24){ overN++; headN = 0; }
+    else if(rawMs < 14){ headN++; overN = 0; }
+    else { if(overN > 0) overN--; if(headN > 0) headN--; }
+    if(overN > 45 && govLevel < 3){ govLevel++; overN = 0; headN = 0; }
+    if(headN > 600 && govLevel > 0){ govLevel--; headN = 0; overN = 0; }
+
+    const interacting = tweens.length > 0 || diveId !== null || panning ||
+                        pointers.size >= 2 || (timeSec - lastInteract < 0.3);
+    const sTarget = GOV[govLevel].s * (interacting ? TIER_INTERACT.s : 1);
+    const iTarget = GOV[govLevel].i * (interacting ? TIER_INTERACT.i : 1);
+    // Phase C: fast attack onto cheaper tiers (heat drops within ~0.2 s of
+    // first touch), gentle release back up (~0.8 s, no pop). Frame-rate-
+    // independent exponential easing, Kaleidoscope-bar style.
+    const kDown = 1 - Math.exp(-dt*12);
+    const kUp = 1 - Math.exp(-dt*3.5);
+    const easeQ = (cur, target) => {
+      const v = cur + (target-cur)*(target < cur ? kDown : kUp);
+      return Math.abs(target-v) < 0.004 ? target : v;
+    };
+    scaleCur = easeQ(scaleCur, sTarget);
+    iterMulCur = easeQ(iterMulCur, iTarget);
+  }
+
+  // ---------- coordinate helpers (y-up complex offsets, double-double) ----------
+  function cssSize(){
+    const r = canvas.getBoundingClientRect();
+    return { w: r.width, h: r.height, min: Math.min(r.width, r.height) };
+  }
+  function touchComplex(cx, cy){
+    const r = canvas.getBoundingClientRect();
+    const min = Math.min(r.width, r.height);
+    const ox = (cx - r.left - r.width/2) / min * scale;
+    const oy = (r.top + r.height/2 - cy) / min * scale;
+    return { x: ddAdd(center.x, ddFromNum(ox)), y: ddAdd(center.y, ddFromNum(oy)) };
+  }
+
+  // ---------- toast ----------
+  let toastTimer = null;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1300);
+  }
+
+  // ---------- interaction ----------
+  const pointers = new Map();   // pointerId -> {x, y}
+  let diveId = null;            // pointer currently diving
+  let diveTarget = null;        // fixed fractal coordinate captured when the dive engages
+  let diveArmedAt = 0;
+  let downAt = 0, downX = 0, downY = 0;
+  let panning = false;
+  let pinchPrev = null;
+  let lastTapAt = 0, lastTapX = 0, lastTapY = 0;
+  let pendingTap = null;        // single-tap waiting out the double-tap window
+  let interacted = false;
+
+  function markInteract(){
+    lastInteract = timeSec;
+    if(!interacted){
+      interacted = true;
+      hint.classList.add('gone');
+    }
+  }
+
+  function tapDive(x, y){
+    const target = touchComplex(x, y);
+    // D1: the dive interpolates log(scale) with ease-out on the log-rate:
+    // constant apparent speed that settles gently into the target, instead
+    // of the old linear-in-scale tween that felt fast-then-stuck and exposed
+    // every rebase boundary. Duration stays 2.4 s; the destination is exact.
+    const endDepth = (S0/scale)*14;
+    const endIter = Math.min(8192, 170 + 55*Math.log2(Math.max(1, endDepth)));
+    // Only engage the perturbation machinery when this dive actually needs it
+    // (end depth past the float32 wall). Shallow dives stay on the classic
+    // path: no rebase, no reference-orbit noise. The destination-anchored
+    // orbit is queued (chunked across frames, never blocking the tween's
+    // first frame); the renderer crossfades in when it lands. Gate semantics
+    // (PERT_DEPTH, pertLatch) are unchanged.
+    if(floatTexExt && !forceClassic && endDepth > PERT_DEPTH){
+      requestRebase(target, endIter); // anchor the orbit at the interesting point
+      pertLatch = true;
+    }
+    const fc = { x: [center.x[0], center.x[1]], y: [center.y[0], center.y[1]] };
+    const fs = scale;
+    const to = Math.max(MIN_SCALE, fs/14);
+    const logFs = Math.log(fs), logTo = Math.log(to);
+    diveId = null; diveTarget = null; panning = false;
+    tween(2.4, k => {
+      const e = 1-Math.pow(1-k, 3); // ease-out cubic on the log-rate
+      center.x = ddLerp(fc.x, target.x, e);
+      center.y = ddLerp(fc.y, target.y, e);
+      scale = Math.exp(logFs + (logTo-logFs)*e);
+    }, null, true);
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* synthetic or edge-case pointers */ }
+    if(pendingTap){ clearTimeout(pendingTap.timer); pendingTap = null; }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    markInteract();
+    tweens.length = 0;
+
+    const now = performance.now();
+    if(now - lastTapAt < 320 && Math.hypot(e.clientX-lastTapX, e.clientY-lastTapY) < 30 && pointers.size === 1){
+      // double-tap: surface (zoom out), keep center
+      lastTapAt = 0;
+      diveId = null; diveTarget = null; panning = false;
+      const from = scale, to = Math.min(MAX_SCALE, scale*5);
+      tween(0.6, k => { scale = from + (to-from)*easeInOut(k); });
+      pointers.delete(e.pointerId);
+      return;
+    }
+    lastTapAt = now; lastTapX = e.clientX; lastTapY = e.clientY;
+
+    if(pointers.size === 1){
+      downAt = now; downX = e.clientX; downY = e.clientY;
+      diveId = e.pointerId;
+      diveTarget = null;   // a fresh touch captures a fresh target; never reuse a stale one
+      diveArmedAt = now + 200;   // hold still briefly, then the dive engages
+      panning = false;
+    } else if(pointers.size === 2){
+      diveId = null; diveTarget = null; panning = false;
+      const pts = [...pointers.values()];
+      pinchPrev = {
+        d: Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y),
+        mx: (pts[0].x+pts[1].x)/2, my: (pts[0].y+pts[1].y)/2
+      };
+    } else {
+      diveId = null; diveTarget = null; panning = false; pinchPrev = null;
+    }
+  });
+
+  canvas.addEventListener('pointermove', e => {
+    const pt = pointers.get(e.pointerId);
+    if(!pt) return;
+    const dx = e.clientX - pt.x, dy = e.clientY - pt.y;
+    pt.x = e.clientX; pt.y = e.clientY;
+    markInteract();
+
+    if(pointers.size === 2){
+      const pts = [...pointers.values()];
+      const d = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+      const mx = (pts[0].x+pts[1].x)/2, my = (pts[0].y+pts[1].y)/2;
+      if(pinchPrev && pinchPrev.d > 0 && d > 0){
+        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * pinchPrev.d / d));
+        const { min } = cssSize();
+        center.x = ddSub(center.x, ddFromNum((mx - pinchPrev.mx)/min*scale));
+        center.y = ddAdd(center.y, ddFromNum((my - pinchPrev.my)/min*scale));
+      }
+      pinchPrev = { d, mx, my };
+      return;
+    }
+
+    if(e.pointerId === diveId && !panning){
+      if(Math.hypot(e.clientX-downX, e.clientY-downY) > 12){
+        panning = true;   // it was a drag, not a hold
+        diveId = null; diveTarget = null;
+      }
+    }
+    if(panning){
+      const { min } = cssSize();
+      center.x = ddSub(center.x, ddFromNum(dx/min*scale));
+      center.y = ddAdd(center.y, ddFromNum(dy/min*scale)); // client y is down-positive; complex y is up
+    }
+  });
+
+  function endPointer(e){
+    const pt = pointers.get(e.pointerId);
+    const tx = e.clientX, ty = e.clientY;
+    const quickTap = pt && pointers.size === 1 && !panning
+      && (performance.now()-downAt < 350)
+      && Math.hypot(tx-downX, ty-downY) < 12;
+    pointers.delete(e.pointerId);
+    if(e.pointerId === diveId){ diveId = null; diveTarget = null; }
+    if(pointers.size < 2) pinchPrev = null;
+    if(pointers.size === 0){ panning = false; diveTarget = null; }
+    if(quickTap){
+      // wait out the double-tap window; a second tap cancels this
+      pendingTap = {
+        timer: setTimeout(() => { pendingTap = null; tapDive(tx, ty); }, 330)
+      };
+    }
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  // ---------- drawer: appearance controls ----------
+  let drawerOpen = false;
+  function setDrawer(open){
+    drawerOpen = open;
+    toolTab.setAttribute('aria-expanded', String(open));
+    toolTab.setAttribute('aria-label', open ? 'Close controls' : 'Open controls');
+    drawerBody.setAttribute('aria-hidden', String(!open));
+    drawer.classList.toggle('open', open);
+    scrim.classList.toggle('open', open);
+    if(open){
+      drawerBody.removeAttribute('inert');
+      drawer.focus({ preventScroll: true });
+    } else {
+      drawerBody.setAttribute('inert', '');
+      toolTab.focus({ preventScroll: true });
+    }
+  }
+  toolTab.addEventListener('click', () => setDrawer(!drawerOpen));
+  scrim.addEventListener('click', () => setDrawer(false));
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && drawerOpen) setDrawer(false);
+  });
+
+  STYLES.forEach((st, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'seg-btn';
+    b.setAttribute('aria-pressed', String(i === styleIdx));
+    const nm = document.createElement('span'); nm.className = 'seg-name'; nm.textContent = st.name;
+    const ds = document.createElement('span'); ds.className = 'seg-desc'; ds.textContent = st.desc;
+    b.append(nm, ds);
+    b.addEventListener('click', () => setStyle(i));
+    styleSeg.appendChild(b);
+  });
+  function updateStyleSeg(){
+    for(let i=0;i<styleSeg.children.length;i++)
+      styleSeg.children[i].setAttribute('aria-pressed', String(i === styleIdx));
+  }
+  const rgb = c => 'rgb(' + Math.round(c[0]*255) + ',' + Math.round(c[1]*255) + ',' + Math.round(c[2]*255) + ')';
+  PALETTES.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sw';
+    b.setAttribute('aria-pressed', String(i === palIdx));
+    b.setAttribute('aria-label', p.name + ' palette');
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.setAttribute('aria-hidden', 'true');
+    chip.style.background = 'conic-gradient(' + p.colors.map(rgb).join(',') + ')';
+    const nm = document.createElement('span');
+    nm.className = 'sw-name';
+    nm.textContent = p.name;
+    b.append(chip, nm);
+    b.addEventListener('click', () => {
+      palIdx = i; applyPalette(); saveLook(); updateSwatches();
+      toast('Palette: ' + p.name);
+      markInteract();
+    });
+    palSw.appendChild(b);
+  });
+  function updateSwatches(){
+    for(let i=0;i<palSw.children.length;i++)
+      palSw.children[i].setAttribute('aria-pressed', String(i === palIdx));
+  }
+
+  // ---------- buttons ----------
+  const MAX_SCALE = S0 * 1.5;
+  bResetView.addEventListener('click', () => {
+    markInteract();
+    diveId = null; diveTarget = null; panning = false; tweens.length = 0;
+    if(pendingTap){ clearTimeout(pendingTap.timer); pendingTap = null; }
+    const fc = { x: [center.x[0], center.x[1]], y: [center.y[0], center.y[1]] };
+    const fs = scale;
+    tween(0.8, k => {
+      const e = easeInOut(k);
+      center.x = ddLerp(fc.x, ddFromNum(C0x), e);
+      center.y = ddLerp(fc.y, ddFromNum(C0y), e);
+      scale = fs + (S0-fs)*e;
+    });
+    setDrawer(false);
+  });
+  bResetLook.addEventListener('click', () => {
+    markInteract();
+    palIdx = 0; applyPalette(); updateSwatches();
+    if(styleIdx !== 0) setStyle(0);
+    saveLook();
+    toast('Appearance reset');
+  });
+  bPause.addEventListener('click', () => {
+    paused = !paused;
+    bPause.setAttribute('aria-pressed', String(paused));
+    bPause.setAttribute('aria-label', paused ? 'Play animation' : 'Pause animation');
+  });
+
+  // ---------- readout ----------
+  let frame = 0;
+  function fmtMag(){
+    const z = S0/scale;
+    if(z < 1000) return '\u00D7' + Math.round(z);
+    if(z < 1e6) return '\u00D7' + (z/1000).toFixed(1) + 'k';
+    if(z < 1e9) return '\u00D7' + (z/1e6).toFixed(1) + 'M';
+    if(z < 1e12) return '\u00D7' + (z/1e9).toFixed(1) + 'B';
+    return '\u00D7' + z.toExponential(1);
+  }
+  function fmtC(v){
+    if(v === 0) return '0';
+    const a = Math.abs(v);
+    if(a >= 10000 || a < 1e-5) return v.toExponential(4);
+    const s = v.toPrecision(6);
+    if(s.indexOf('e') !== -1) return s;
+    return s.replace(/(\.\d*?)0+$/, '$1');
+  }
+  function fmtCenter(){
+    const cx = ddToNum(center.x), cy = ddToNum(center.y);
+    const re = fmtC(cx), im = fmtC(cy);
+    return re + (cy < 0 ? ' \u2212 ' : ' + ') + im.replace(/^-/, '') + 'i';
+  }
+
+  // ---------- main loop ----------
+  let last = performance.now();
+  let rafId = 0, ctxLost = false;
+  function loop(now){
+    rafId = requestAnimationFrame(loop);
+    if(ctxLost) return;
+    let dt = (now-last)/1000;
+    last = now;
+    if(dt > 0.05) dt = 0.05;
+    window.__mandel._frameNo++;
+    { const _wm = window.__mandel, _now = performance.now();
+      const _fw = _wm._frameWall || (_wm._frameWall = []);
+      if(_wm._lastFrameT) _fw.push(_now - _wm._lastFrameT);
+      _wm._lastFrameT = _now;
+      if(_fw.length > 6000) _fw.shift();
+      const _fd = _wm._frameDts; _fd.push(dt*1000); if(_fd.length > 6000) _fd.shift(); }
+    if(dt <= 0) return;
+
+    pumpQuality(now, dt); // interaction tier + thermal governor ease every frame
+
+    if(!paused){
+      timeSec += dt;
+      flowSec += dt*0.055;
+    }
+
+    // tweens
+    for(let i=tweens.length-1; i>=0; i--){
+      const tw = tweens[i];
+      tw.t += dt;
+      const k = Math.min(1, tw.t/tw.dur);
+      tw.apply(k);
+      if(k >= 1){ tweens.splice(i,1); tw.done && tw.done(); }
+    }
+
+    // the dive: hold still -> sink into the spot under your finger.
+    // the target is captured once when the dive engages, so the fractal
+    // coordinate beneath the fingertip stays glued there while the world magnifies.
+    if(diveId !== null && pointers.has(diveId) && performance.now() >= diveArmedAt && tweens.length === 0){
+      const pt = pointers.get(diveId);
+      if(diveTarget === null){
+        diveTarget = touchComplex(pt.x, pt.y);
+        if(floatTexExt && !forceClassic && (S0/scale) > PERT_DEPTH) rebaseAt(diveTarget); // anchor the orbit where we're sinking
+      }
+      const k = 1 - Math.exp(-3.2*dt);
+      center.x = ddAdd(center.x, ddMul(ddFromNum(k), ddSub(diveTarget.x, center.x)));
+      center.y = ddAdd(center.y, ddMul(ddFromNum(k), ddSub(diveTarget.y, center.y)));
+      scale = Math.max(MIN_SCALE, scale*Math.exp(-1.05*dt));
+    }
+
+    // idle drift: a slow wander when untouched and unpaused (off under reduced motion)
+    if(!paused && !REDUCED && diveId === null && !panning && pointers.size === 0 && tweens.length === 0
+       && timeSec - lastInteract > 4){
+      center.x = ddAdd(center.x, ddFromNum(Math.sin(timeSec*0.13)*dt*0.020*scale));
+      center.y = ddAdd(center.y, ddFromNum(Math.cos(timeSec*0.09)*dt*0.020*scale));
+    }
+
+    const zoomF = S0/scale;
+    maxIter = Math.min(8192, 170 + 55*Math.log2(Math.max(1, zoomF)));
+    iterEff = Math.min(8192, maxIter*iterMulCur); // the tier/governor-adjusted budget actually rendered
+    // hue evolves with dive depth, so color change is tied to exploration, not a timer
+    const dyePhase = (dyeBase + 0.12*Math.log2(Math.max(1, zoomF))) % 1;
+
+    // Dynamic renderer gating (unchanged Sept-21 semantics): perturbation
+    // engages past PERT_DEPTH, or for the whole of a tap-dive whose end depth
+    // needs it (latched in tapDive). Hold-dives / pinches crossing the
+    // threshold mid-gesture queue a re-anchor here; the chunked build lands a
+    // few frames later and the domain crossfades in (D3) — no synchronous
+    // rebase ever runs on an animation frame (D2).
+    const inDive = tweens.some(t => t.dive);
+    if(pertLatch && !inDive) pertLatch = false;
+    const wantPert = floatTexExt && !forceClassic && ((S0/scale) > PERT_DEPTH || pertLatch);
+    pertActive = wantPert;
+    if(wantPert && !rebaseJob && !rebaseQueued){
+      if(orbitLen === 0){
+        requestRebase(center); // first anchor for this session's deep region
+      } else {
+        const rdx = ddToNum(ddSub(center.x, refC.x));
+        const rdy = ddToNum(ddSub(center.y, refC.y));
+        const drift = Math.hypot(rdx, rdy)/scale;
+        // D5: hysteresis band — fire past 0.75*scale, re-arm below 0.25*scale.
+        // During a tap-dive tween the anchor sits at the destination and the
+        // view converges onto it, so drift re-anchoring stays suppressed.
+        if(driftArmed && drift > 0.75 && !inDive) requestRebase(center);
+        else if(drift < 0.25) driftArmed = true;
+        // D6: with 2x orbit headroom this no longer fires mid-dive; kept as
+        // the safety net for pathological iteration growth.
+        if(maxIter > orbitLen*0.8) requestRebase(center, maxIter);
+      }
+    }
+    // Pump the debounce queue and chunk the orbit build across frames.
+    const nowMs = performance.now();
+    if(!rebaseJob && rebaseQueued && nowMs >= rebaseNotBefore){
+      const m = Math.max(maxIter, rebaseQueued.iterHint);
+      const need = Math.min(ORBIT_MAX, Math.max(256, Math.ceil(m*2) + 256));
+      rebaseJob = { p: rebaseQueued.p, n: 0, need, z: { x: [0,0], y: [0,0] } };
+      rebaseQueued = null;
+    }
+    if(rebaseJob) pumpRebaseJob();
+
+    // D3/D4: the renderer domain never hard-flips. domainTarget follows the
+    // gate, but a locked tween (reset / double-tap surface) freezes it at its
+    // start-of-tween value. Any change animates through u_blend over 3 frames.
+    let domainTarget = (wantPert && orbitLen > 0) ? 1 : 0;
+    const lockTw = tweens.find(t => t.domainLock);
+    if(lockTw) domainTarget = lockTw.domainAtStart;
+    if(domainTarget !== blendTarget){ blendFrom = blend; blendTarget = domainTarget; blendT = 0; }
+    if(blend !== blendTarget){
+      blendT++;
+      blend = blendFrom + (blendTarget-blendFrom)*Math.min(1, blendT/3);
+    }
+
+    resize();
+    pumpPalette(dt);
+    pumpStyleXfade(dt);
+    gl.uniform2f(U.u_res, canvas.width, canvas.height);
+    gl.uniform2f(U.u_center, ddToNum(center.x), ddToNum(center.y));
+    // u_delta tracks the BOUND orbit's anchor (texC), never the in-flight
+    // one: the shader's texture and its anchor must always agree.
+    gl.uniform2f(U.u_delta, ddToNum(ddSub(center.x, texC.x)), ddToNum(ddSub(center.y, texC.y)));
+    gl.uniform1f(U.u_scale, scale);
+    gl.uniform1f(U.u_dye, dyePhase);
+    // texel i+1 is fetched, so keep one texel of headroom past u_iter
+    gl.uniform1f(U.u_iter, blend > 0.001 ? Math.min(iterEff, orbitLen - 1) : Math.min(iterEff, 8192));
+    gl.uniform1f(U.u_flow, flowSec % 64);
+    gl.uniform1f(U.u_blend, blend);
+    gl.uniform1f(U.u_orbitLen, orbitLen);
+    gl.uniform1f(U.u_styleA, styleA);
+    gl.uniform1f(U.u_styleB, styleB);
+    gl.uniform1f(U.u_xfade, xfade);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    if((frame++ & 7) === 0){
+      rMag.textContent = fmtMag();
+      rCenter.textContent = fmtCenter();
+      rIter.textContent = String(Math.round(iterEff));
+      const degraded = scaleCur < 0.985 || iterMulCur < 0.985;
+      rQualRow.hidden = !degraded;
+      if(degraded) rQual.textContent = govLevel > 0 ? 'Adaptive (load)' : 'Adaptive (motion)';
+    }
+  }
+
+  // ---------- context loss: user-visible restore, never a silent stall ----------
+  canvas.addEventListener('webglcontextlost', e => {
+    e.preventDefault();
+    if(ctxLost) return;
+    ctxLost = true;
+    cancelAnimationFrame(rafId);
+    showStatus('The graphics context was lost. Restoring the fractal…', 'Restoring');
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    try {
+      initGL(); // rebuilds program, buffers, textures, uniforms; re-uploads the orbit
+      ctxLost = false;
+      hideStatus();
+      last = performance.now();
+      lastRaw = performance.now();
+      rafId = requestAnimationFrame(loop);
+    } catch(err){
+      showStatus('The fractal could not be restored: ' + err.message, 'Restore failed');
+    }
+  });
+
+  // ---------- debug hook for automated checks ----------
+  window.__mandel = {
+    get center(){ return { x: ddToNum(center.x), y: ddToNum(center.y) }; },
+    get scale(){ return scale; },
+    get depth(){ return S0/scale; },
+    get maxIter(){ return Math.round(maxIter); },
+    get iterEff(){ return Math.round(iterEff); },
+    get palette(){ return PALETTES[palIdx].name; },
+    get style(){ return STYLES[styleIdx].name; },
+    get quality(){ return { gov: govLevel, scale: +scaleCur.toFixed(3), iterMul: +iterMulCur.toFixed(3) }; },
+    get costProxy(){ return Math.round(canvas.width*canvas.height*iterEff); },
+    get xfade(){ return +xfade.toFixed(3); },
+    setGov(n){ govLevel = Math.max(0, Math.min(3, n|0)); overN = 0; headN = 0; },
+    get direct(){ return !pertActive; },
+    get pertActive(){ return pertActive; },
+    get floatTex(){ return !!floatTexExt; },
+    get orbitLen(){ return orbitLen; },
+    get minScale(){ return MIN_SCALE; },
+    _lastRebaseMs: 0,
+    _rebaseRequests: 0,   // requestRebase calls (deferred; never blocks a frame)
+    _rebaseSyncTween: 0,  // full synchronous builds landing on tween frames (must stay 0)
+    _rebaseChunkMaxMs: 0, // slowest single-frame chunk pump observed
+    _frameNo: 0,
+    _frameDts: [],
+    get blend(){ return blend; },
+    get blendTarget(){ return blendTarget; },
+    setDirect(b){ forceClassic = !!b; }, // true: force classic path (debug); false: auto gate
+    rebase(){ rebaseNow(center); },
+    refLag(){
+      const dx = ddToNum(ddSub(center.x, refC.x)), dy = ddToNum(ddSub(center.y, refC.y));
+      return Math.hypot(dx, dy)/scale;
+    },
+    setView(x, y, s){
+      center.x = ddFromNum(x); center.y = ddFromNum(y); scale = s;
+      tweens.length = 0; diveId = null; diveTarget = null; panning = false;
+      if(floatTexExt && !forceClassic && (S0/s) > PERT_DEPTH) rebaseAt(center);
+    },
+    probe(cx, cy){
+      const p = touchComplex(cx, cy);
+      return { x: ddToNum(p.x), y: ddToNum(p.y) };
+    }
+  };
+
+  try {
+    initGL();
+  } catch(err){
+    showStatus('The fractal could not start: ' + err.message, 'Startup failed');
+    return;
+  }
+  applyPalette();
+  if(REDUCED){
+    // Kaleidoscope bar: reduced motion starts the app paused
+    paused = true;
+    bPause.setAttribute('aria-pressed', 'true');
+    bPause.setAttribute('aria-label', 'Play animation');
+  }
+  if(floatTexExt && (S0/scale) > PERT_DEPTH) rebaseAt(center);
+  resize();
+  rafId = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
