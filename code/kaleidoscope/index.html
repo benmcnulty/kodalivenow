@@ -336,20 +336,6 @@
       transition: transform 80ms linear;
     }
     .audio-status { min-height: 15px; margin-top: 8px; color: rgba(247,244,238,.58); font-size: 10px; line-height: 1.4; }
-    .audio-fallback {
-      margin-top: 8px;
-      padding: 8px 12px;
-      border: 1px solid rgba(183,249,139,.4);
-      border-radius: 11px;
-      background: rgba(183,249,139,.1);
-      color: var(--k-ink);
-      font: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .audio-fallback:hover { background: rgba(183,249,139,.18); }
-    .audio-fallback[hidden] { display: none; }
 
     @keyframes audioPulse {
       0%, 100% { transform: scale(.94); opacity: .72; }
@@ -767,15 +753,9 @@
           <span><strong>Microphone</strong><small>Ambient sound and nearby music</small></span>
           <span class="source-state" id="micState">Start</span>
         </button>
-        <button class="audio-source" id="systemSource" type="button" data-audio-source="system">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 20h8M12 15.5V20M7.5 10.2h2l1.2-2.3 2.1 4.3 1.2-2h2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span><strong>Tab or system audio</strong><small>Choose a shared tab or screen with audio</small></span>
-          <span class="source-state" id="systemState">Start</span>
-        </button>
       </div>
       <div class="audio-meter" aria-hidden="true"><span id="audioMeter"></span></div>
       <div class="audio-status" id="audioStatus" role="status" aria-live="polite">Select a source to begin.</div>
-      <button class="audio-fallback" id="audioFallback" type="button" hidden>Use the microphone instead</button>
     </aside>
 
     <button class="lens-button glass-button" id="lensButton" type="button" aria-label="Start camera lens" aria-expanded="false" aria-controls="lensMenu" aria-pressed="false">
@@ -922,11 +902,8 @@
       const audioButton = document.getElementById('audioButton');
       const audioMenu = document.getElementById('audioMenu');
       const micSourceButton = document.getElementById('micSource');
-      const systemSourceButton = document.getElementById('systemSource');
       const micState = document.getElementById('micState');
-      const systemState = document.getElementById('systemState');
       const audioStatus = document.getElementById('audioStatus');
-      const audioFallback = document.getElementById('audioFallback');
       const audioMeter = document.getElementById('audioMeter');
       const drawer = document.getElementById('drawer');
       const drawerControls = document.getElementById('drawerControls');
@@ -987,12 +964,6 @@
       let analyser = null;
       let frequencyData = null;
       let activeAudioSource = null;
-      // Last source that produced audio. Persisted so the panel can offer
-      // one-tap switching back after a failed capture (e.g. tab audio with
-      // no audio track on macOS -> microphone).
-      let lastAudioSource = null;
-      try { lastAudioSource = localStorage.getItem('kaleidoscope.audioSource'); } catch (error) { /* storage unavailable */ }
-      const NO_AUDIO_GUIDANCE = 'No audio came through. Pick \u2018Chrome Tab\u2019 in the chooser and turn on \u2018Share tab audio\u2019. macOS cannot capture full-screen system audio, and the native Apple Music app cannot be captured \u2014 play from a music.apple.com tab instead.';
       // ---- Camera lens (object chamber) ----
       const lensButton = document.getElementById('lensButton');
       const lensMenu = document.getElementById('lensMenu');
@@ -1455,14 +1426,11 @@
         audioButton.classList.toggle('listening', active);
         audioButton.setAttribute('aria-label', active ? 'Audio reaction is active' : 'Open audio reaction controls');
         micSourceButton.classList.toggle('active', activeAudioSource === 'microphone');
-        systemSourceButton.classList.toggle('active', activeAudioSource === 'system');
         micState.textContent = activeAudioSource === 'microphone' ? 'Stop' : 'Start';
-        systemState.textContent = activeAudioSource === 'system' ? 'Stop' : 'Start';
         if (message) audioStatus.textContent = message;
       }
 
       function stopAudio(message = 'Audio reaction stopped.') {
-        audioFallback.hidden = true;
         if (audioStream) {
           audioStream.getTracks().forEach(track => {
             track.onended = null;
@@ -1485,8 +1453,10 @@
         updateAudioUI(message);
       }
 
-      async function startAudio(kind) {
-        if (activeAudioSource === kind) {
+      // Microphone is the only audio source: tab/system capture is not
+      // offered because macOS cannot provide it reliably.
+      async function startAudio() {
+        if (activeAudioSource) {
           stopAudio();
           return;
         }
@@ -1494,10 +1464,8 @@
           updateAudioUI('Audio capture requires a secure browser connection.');
           return;
         }
-        if (!navigator.mediaDevices || (kind === 'microphone' && !navigator.mediaDevices.getUserMedia) || (kind === 'system' && !systemAudioSupported)) {
-          updateAudioUI(kind === 'system'
-            ? 'Tab or system audio is available in supported desktop browsers.'
-            : 'Microphone capture is unavailable in this browser.');
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          updateAudioUI('Microphone capture is unavailable in this browser.');
           return;
         }
 
@@ -1510,22 +1478,10 @@
 
         try {
           audioContext = new AudioContextClass();
-          const capturePromise = kind === 'microphone'
-            ? navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-              })
-            : navigator.mediaDevices.getDisplayMedia({
-                video: true,
-                audio: true,
-                preferCurrentTab: true,
-                systemAudio: 'include'
-              });
           if (audioContext.state === 'suspended') await audioContext.resume();
-          const stream = await capturePromise;
-          if (!stream.getAudioTracks().length) {
-            stream.getTracks().forEach(track => track.stop());
-            throw new Error('NO_AUDIO_TRACK');
-          }
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+          });
 
           audioStream = stream;
           analyser = audioContext.createAnalyser();
@@ -1534,27 +1490,16 @@
           frequencyData = new Uint8Array(analyser.frequencyBinCount);
           audioSourceNode = audioContext.createMediaStreamSource(stream);
           audioSourceNode.connect(analyser);
-          activeAudioSource = kind;
-          lastAudioSource = kind;
-          try { localStorage.setItem('kaleidoscope.audioSource', kind); } catch (error) { /* storage unavailable */ }
-          audioFallback.hidden = true;
+          activeAudioSource = 'microphone';
           stream.getTracks().forEach(track => {
-            track.onended = () => stopAudio('Audio sharing ended.');
+            track.onended = () => stopAudio('Microphone disconnected.');
           });
-          updateAudioUI(kind === 'microphone'
-            ? 'Listening to the microphone.'
-            : 'Reacting to shared tab or system audio.');
+          updateAudioUI('Listening to the microphone.');
         } catch (error) {
-          const noAudio = error && error.message === 'NO_AUDIO_TRACK';
           const denied = error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
-          stopAudio(noAudio
-            ? NO_AUDIO_GUIDANCE
-            : denied
-              ? 'Permission was not granted. You can try again whenever you are ready.'
-              : 'This audio source is unavailable here.');
-          // Offer one-tap switching back to the microphone after a failed
-          // tab/system capture — the common macOS dead end.
-          audioFallback.hidden = !(noAudio || denied);
+          stopAudio(denied
+            ? 'Microphone permission was not granted. You can try again whenever you are ready.'
+            : 'The microphone is unavailable here.');
         }
       }
 
@@ -1898,12 +1843,7 @@
         if (opening) { toggleDrawer(false); setLensMenu(false); }
         setAudioMenu(opening);
       });
-      micSourceButton.addEventListener('click', () => startAudio('microphone'));
-      systemSourceButton.addEventListener('click', () => startAudio('system'));
-      audioFallback.addEventListener('click', () => {
-        audioFallback.hidden = true;
-        startAudio('microphone');
-      });
+      micSourceButton.addEventListener('click', () => startAudio());
       lensButton.addEventListener('click', () => {
         // Head-up toggle: when the lens is off this tap IS the camera/motion
         // permission gesture, so it starts the rear camera directly. When the
@@ -2049,15 +1989,8 @@
       window.addEventListener('orientationchange', () => { motionBaseline = null; }, { passive: true });
       window.addEventListener('pagehide', () => { stopAudio('Audio reaction stopped.'); stopLens('Camera lens stopped.'); });
 
-      const mobilePlatform = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const systemAudioSupported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !mobilePlatform;
       updateAudioUI('Select a source to begin.');
       updateLensUI('Select a source to begin.');
-      if (!systemAudioSupported) {
-        systemSourceButton.disabled = true;
-        systemState.textContent = 'Desktop';
-        systemSourceButton.querySelector('small').textContent = 'Available in supported desktop browsers';
-      }
       setAudioMenu(false);
       setPaused(paused);
       toggleDrawer(false);
