@@ -1,0 +1,230 @@
+/* ============================================================
+   Koda — kodalivenow.com polish: prismatic rainbow-glass layer
+   ------------------------------------------------------------
+   Loaded AFTER main.css. Overrides only — never edits it.
+   Lane: glass / depth / shadow styling ONLY.
+   (Typography, logo, motion, iconography belong to siblings.)
+
+   Design contract for this file:
+   - "Glass" reads from LIGHT, not color: a crisp 1px top-edge
+     inset highlight + a soft inner top glow on raised surfaces.
+   - Hue-shift appears ONLY as hairline 1px gradient rings at
+     low alpha — one accent gradient per surface, never stripes.
+   - Shadows are layered: tight dark contact + wide soft colored
+     ambient, so hovers feel like light passing through glass.
+   - NO backdrop-filter anywhere in this file (mobile GPU cost;
+     the header keeps its existing one from main.css).
+   - No-JS safe: everything is pure CSS, intentional at rest.
+   - Reduced-motion safe: no keyframes, no animated sheens.
+     All "sweep" effects are opacity cross-fades, which main.css's
+     prefers-reduced-motion block already damps to ~0s.
+   ============================================================ */
+
+/* ---- 0. Tokens local to this layer ---- */
+:root {
+  /* One shared accent gradient, teal → blue → violet at restrained alpha.
+     Used only for hairline rings, never as a fill. */
+  --glass-ring: linear-gradient(140deg,
+    oklch(81% 0.13 185 / 0.42),
+    oklch(66% 0.19 272 / 0.30) 48%,
+    oklch(72% 0.17 308 / 0.42));
+  --glass-ring-hover: linear-gradient(140deg,
+    oklch(81% 0.13 185 / 0.62),
+    oklch(66% 0.19 272 / 0.48) 48%,
+    oklch(72% 0.17 308 / 0.62));
+  --glass-edge: rgb(255 255 255 / 0.06);   /* crisp top-edge inset */
+  --glass-edge-strong: rgb(255 255 255 / 0.08);
+}
+
+/* ============================================================
+   1. GLASS HIGHLIGHTS — crisp top edge + soft inner top glow
+   Surfaces: .card / .status-card / .wont-list li / .pill
+   These are inset shadows only: they never sit behind text,
+   so text contrast is untouched.
+   ============================================================ */
+.card,
+.status-card,
+.wont-list li {
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    inset 0 26px 34px -26px rgb(255 255 255 / 0.05);
+}
+
+/* .pill is small; a whisper of a top edge is enough. */
+.pill {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* ============================================================
+   2. HUE-SHIFT HAIRLINE BORDERS
+   A 1px gradient ring drawn with a masked ::before, so it:
+   - respects border-radius (via border-radius: inherit),
+   - never fights the element's background (mask punches the
+     interior out; only the 1px ring paints),
+   - paints over the stock 1px --line border, replacing it
+     visually with the gradient — one accent per surface.
+   Wrapped in @supports: if mask-composite is unavailable the
+   whole ring is skipped instead of painting a full overlay.
+   ============================================================ */
+.card,
+.status-card {
+  position: relative; /* anchor for the ::before ring */
+}
+
+@supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+  .card::before,
+  .status-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;                       /* ring thickness */
+    background: var(--glass-ring) border-box;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box,
+                  linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.55;
+    transition: opacity 0.25s var(--ease);
+  }
+  .card:hover::before,
+  .status-card:hover::before {
+    opacity: 0.95;
+  }
+}
+
+/* ============================================================
+   3. LAYERED SHADOWS — hover states
+   Re-declared after main.css so the full shadow stack wins:
+   tight dark contact + wide soft colored ambient + the glass
+   insets from section 1. Transforms/border-colors from main.css
+   are untouched and still apply.
+   ============================================================ */
+.card:hover {
+  box-shadow:
+    0 2px 8px -2px rgb(0 0 0 / 0.50),                    /* tight contact */
+    0 20px 48px -16px rgb(0 0 0 / 0.65),                 /* soft drop   */
+    0 0 34px -8px oklch(81% 0.13 185 / 0.30),            /* teal ambient — light through glass */
+    inset 0 1px 0 var(--glass-edge-strong),
+    inset 0 26px 34px -26px rgb(255 255 255 / 0.06);
+}
+
+.status-card:hover {
+  box-shadow:
+    0 2px 8px -2px rgb(0 0 0 / 0.50),
+    0 18px 44px -14px rgb(0 0 0 / 0.65),
+    0 0 30px -8px oklch(66% 0.19 272 / 0.32),            /* blue ambient */
+    inset 0 1px 0 var(--glass-edge-strong),
+    inset 0 26px 34px -26px rgb(255 255 255 / 0.06);
+}
+
+.wont-list li:hover {
+  border-color: oklch(72% 0.17 308 / 0.45);
+  box-shadow:
+    0 10px 28px -14px rgb(0 0 0 / 0.6),
+    0 0 24px -10px oklch(72% 0.17 308 / 0.28),           /* violet ambient */
+    inset 0 1px 0 var(--glass-edge-strong);
+}
+
+/* ============================================================
+   4. INTERACTIVE STATES — chips, buttons, icons, nav
+   Physical feel: hover lifts + ambient; :active presses back
+   down with an inverted inset (highlight shifts, shadow deepens
+   from above). Gradient "sweeps" are static cross-fades.
+   ============================================================ */
+
+/* --- .social-chip --- */
+.social-chip {
+  box-shadow: inset 0 1px 0 var(--glass-edge);
+}
+.social-chip:hover {
+  box-shadow:
+    0 2px 6px -2px rgb(0 0 0 / 0.50),
+    0 10px 30px -8px oklch(66% 0.19 272 / 0.55),         /* blue ambient */
+    inset 0 1px 0 var(--glass-edge-strong);
+}
+.social-chip:active {
+  transform: translateY(0);                              /* press back down */
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    inset 0 -2px 8px rgb(0 0 0 / 0.30);                  /* pressed-in depth */
+}
+
+/* --- .btn --- */
+.btn {
+  position: relative;                                   /* anchor for sheen */
+  box-shadow:
+    0 2px 6px -2px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.22);               /* glossy top on the gradient */
+}
+/* Static sheen: a diagonal light band, cross-faded in on hover.
+   No animation — opacity transition only, motion-gate safe. */
+.btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(105deg,
+    transparent 42%,
+    rgb(255 255 255 / 0.16) 50%,
+    transparent 58%);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
+  pointer-events: none;
+}
+.btn:hover {
+  box-shadow:
+    0 2px 8px -2px rgb(0 0 0 / 0.45),
+    0 14px 36px -10px oklch(81% 0.13 185 / 0.65),        /* teal ambient */
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+.btn:hover::after { opacity: 1; }
+.btn:active {
+  transform: translateY(0);
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 0 / 0.28),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+.btn:active::after { opacity: 0; }
+
+/* --- .footer-icons a --- */
+.footer-icons a {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+.footer-icons a:hover {
+  box-shadow:
+    0 6px 18px -8px oklch(81% 0.13 185 / 0.45),          /* teal ambient */
+    inset 0 1px 0 var(--glass-edge-strong);
+}
+.footer-icons a:active {
+  transform: translateY(0);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    inset 0 -2px 6px rgb(0 0 0 / 0.30);
+}
+
+/* --- .nav-links a --- */
+.nav-links a:active {
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.30);
+}
+/* Current page pill: a hairline accent ring + top glass edge,
+   so "you are here" reads as etched glass rather than flat fill. */
+.nav-links a[aria-current="page"] {
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge-strong),
+    inset 0 0 0 1px oklch(81% 0.13 185 / 0.22);
+}
+
+/* ============================================================
+   5. DELIBERATELY OMITTED (see polish/glass/NOTES.md)
+   - Iridescent wash on .hero h1 .accent / .eyebrow: the accent
+     already carries a teal→blue→violet gradient; a conic wash
+     would tip it into rainbow-stripes territory.
+   - Animated sheen keyframes: motion lane's territory; static
+     cross-fades here are motion-gate safe by construction.
+   - Gradient rings on chips/pills/footer icons: too much
+     jewelry at small sizes; insets + ambient do the work.
+   ============================================================ */

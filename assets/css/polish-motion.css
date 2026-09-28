@@ -1,0 +1,127 @@
+/* ============================================================
+   Koda — kodalivenow.com polish: motion vocabulary
+   ------------------------------------------------------------
+   Restrained micro-animations. Every rule that moves anything is
+   gated behind BOTH of these:
+
+     1. JS ran and added `js-motion` to <html>
+        (no-JS visitors never get the class — content stays visible)
+     2. @media (prefers-reduced-motion: no-preference)
+        (reduced-motion visitors get final, static states only)
+
+   Motion vocabulary (deliberately small):
+     - scroll reveals: fade + 12px rise, 500ms, --ease, staggered
+       on grids via --reveal-delay
+     - hero entrance cascade: eyebrow → h1 → lede → social chips
+     - card hover lift refinement (transform/timing only —
+       shadow values belong to the glass-depth workstream)
+     - press states: subtle :active scale on buttons/chips/icons
+     - lab-note timeline dots draw in (scale/opacity)
+     - hero .accent headline: very slow gradient drift (~8s)
+
+   Implementation notes:
+     - Reveals animate `opacity` + the independent `translate`
+       property (NOT `transform`), so they never fight main.css
+       `transform`-based hovers (:hover keeps working mid-reveal).
+     - IntersectionObserver only, passive, once:true semantics
+       (unobserve after reveal). No scroll listeners.
+     - Focus states are untouched — :focus-visible keeps its
+       outline; nothing here animates outlines away.
+   ============================================================ */
+
+/* ---- Safe defaults: without .js-motion nothing is ever hidden.
+        This file adds no hidden pre-states outside the gate. ---- */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* ---- Scroll reveals ---------------------------------------- */
+  html.js-motion [data-reveal] {
+    opacity: 0;
+    translate: 0 12px;
+    transition: opacity 500ms var(--ease), translate 500ms var(--ease);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  html.js-motion [data-reveal].in-view {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  /* ---- Hero entrance cascade (home) ---------------------------
+     eyebrow → h1 → lede → social chips, ~770ms total. No bounce. */
+  html.js-motion .hero-inner > [data-reveal]:nth-child(1) { --reveal-delay: 0ms; }
+  html.js-motion .hero-inner > [data-reveal]:nth-child(2) { --reveal-delay: 90ms; }
+  html.js-motion .hero-inner > [data-reveal]:nth-child(3) { --reveal-delay: 180ms; }
+  html.js-motion .hero-inner > [data-reveal]:nth-child(4) { --reveal-delay: 270ms; }
+
+  /* ---- Page-hero cascade (about / now) ------------------------ */
+  html.js-motion .page-hero .container > [data-reveal]:nth-child(1) { --reveal-delay: 0ms; }
+  html.js-motion .page-hero .container > [data-reveal]:nth-child(2) { --reveal-delay: 90ms; }
+  html.js-motion .page-hero .container > [data-reveal]:nth-child(3) { --reveal-delay: 180ms; }
+
+  /* ---- Grid stagger (kept short: total ≤ ~300ms) --------------- */
+  html.js-motion .status-grid > [data-reveal]:nth-child(2) { --reveal-delay: 60ms; }
+  html.js-motion .status-grid > [data-reveal]:nth-child(3) { --reveal-delay: 120ms; }
+  html.js-motion .status-grid > [data-reveal]:nth-child(4) { --reveal-delay: 180ms; }
+  html.js-motion .status-grid > [data-reveal]:nth-child(5) { --reveal-delay: 240ms; }
+
+  html.js-motion .card-grid > [data-reveal]:nth-child(2) { --reveal-delay: 70ms; }
+  html.js-motion .card-grid > [data-reveal]:nth-child(3) { --reveal-delay: 140ms; }
+  html.js-motion .card-grid > [data-reveal]:nth-child(4) { --reveal-delay: 210ms; }
+
+  html.js-motion .focus-list > [data-reveal]:nth-child(2) { --reveal-delay: 45ms; }
+  html.js-motion .focus-list > [data-reveal]:nth-child(3) { --reveal-delay: 90ms; }
+  html.js-motion .focus-list > [data-reveal]:nth-child(4) { --reveal-delay: 135ms; }
+  html.js-motion .focus-list > [data-reveal]:nth-child(5) { --reveal-delay: 180ms; }
+  html.js-motion .focus-list > [data-reveal]:nth-child(6) { --reveal-delay: 225ms; }
+  html.js-motion .focus-list > [data-reveal]:nth-child(7) { --reveal-delay: 270ms; }
+
+  html.js-motion .wont-list > [data-reveal]:nth-child(2) { --reveal-delay: 60ms; }
+  html.js-motion .wont-list > [data-reveal]:nth-child(3) { --reveal-delay: 120ms; }
+  html.js-motion .wont-list > [data-reveal]:nth-child(4) { --reveal-delay: 180ms; }
+
+  /* ---- Timeline draw (now.html lab notes) ----------------------
+     The violet dot pops in just after its note starts revealing. */
+  html.js-motion .lab-note[data-reveal] > svg {
+    scale: 0;
+    opacity: 0;
+    transition: scale 450ms var(--ease), opacity 300ms ease;
+    transition-delay: 120ms, 120ms;
+  }
+  html.js-motion .lab-note[data-reveal].in-view > svg {
+    scale: 1;
+    opacity: 1;
+  }
+
+  /* ---- Card hover refinement -----------------------------------
+     Judgment call: slightly deeper lift + softer timing than the
+     base -3px/0.25s. Transform and transition-timing ONLY — shadow
+     values are owned by the glass-depth workstream, untouched here. */
+  html.js-motion .status-card,
+  html.js-motion .card {
+    transition: transform 0.3s var(--ease), border-color 0.25s, box-shadow 0.25s;
+  }
+  html.js-motion .status-card:hover,
+  html.js-motion .card:hover {
+    transform: translateY(-4px);
+  }
+
+  /* ---- Press states (CSS only) --------------------------------- */
+  html.js-motion .btn:active,
+  html.js-motion .social-chip:active,
+  html.js-motion .footer-icons a:active {
+    transform: scale(0.97);
+  }
+
+  /* ---- Hero .accent gradient drift ------------------------------
+     Very slow hue drift across the gradient headline (~8s loop).
+     Barely perceptible by design — delete this block if it ever
+     reads as cheap; the headline is complete without it. */
+  html.js-motion .hero h1 .accent {
+    background-size: 220% 100%;
+    animation: accent-drift 8s ease-in-out infinite;
+  }
+  @keyframes accent-drift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+}

@@ -1,0 +1,3006 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050508" />
+  <meta name="color-scheme" content="dark" />
+  <title>Kaleidoscope &mdash; Koda&rsquo;s Code</title>
+  <meta name="description" content="An animated jewel-glass kaleidoscope &mdash; pick a style and a palette, and watch it unfold. Runs entirely in your browser." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Koda" />
+  <meta property="og:title" content="Kaleidoscope &mdash; Koda&rsquo;s Code" />
+  <meta property="og:description" content="An animated jewel-glass kaleidoscope &mdash; pick a style and a palette, and watch it unfold. Runs entirely in your browser." />
+  <meta property="og:image" content="https://kodalivenow.com/assets/img/og-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg" />
+  <link rel="preload" href="../../assets/fonts/clash-display-600.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/dm-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="../../assets/css/main.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-type.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-glass.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-icons.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-motion.css" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --k-ink: #f7f4ee;
+      --k-muted: rgba(247, 244, 238, 0.64);
+      --k-glass: rgba(10, 12, 18, 0.68);
+      --k-glass-strong: rgba(8, 10, 16, 0.88);
+      --k-line: rgba(255, 255, 255, 0.17);
+      --k-sheen: rgba(255, 255, 255, 0.12);
+      --k-accent: #b7f98b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    /* Fullscreen app feel: the page still scrolls so the footer stays
+       reachable, but no viewport scrollbar is ever rendered. */
+    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+    body {
+      margin: 0;
+      background: #050508;
+      color: var(--k-ink);
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      /* The fixed site header's rendered height varies with device font
+         metrics (measured ~67px headless, taller on iOS); it is measured
+         at runtime into --site-head-h so the stage starts exactly below it
+         and the top-row control circles can never slide under it. */
+      height: calc(100vh - var(--site-head-h, 76px));
+      height: calc(100dvh - var(--site-head-h, 76px));
+      margin-top: var(--site-head-h, 76px);
+      isolation: isolate;
+      overflow: hidden;
+      background: #050508;
+      font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      /* Touch-and-hold must never select page text (iOS callout fix). */
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    /* ---- Page title block (family signature, shared with Mandelbrot) ----
+       Absolute overlay over the stage: no reflow, no pointer capture.
+       Top-center below the back pill — top-left is occupied by the
+       audio/lens buttons, so a literal top-left mirror would occlude them. */
+    /* Phase 1: title block lives at the bottom, quiet and subordinate.
+       Kicker dropped (the top-row back link already carries "Koda's Code"). */
+    .k-title {
+      position: absolute;
+      z-index: 2;
+      left: max(16px, env(safe-area-inset-left));
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+      margin: 0;
+      text-align: left;
+      pointer-events: none;
+    }
+    .k-title h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+    }
+    .k-title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--k-muted);
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+    }
+    canvas.dragging { cursor: grabbing; }
+
+    .noise {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.2;
+      mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.24'/%3E%3C/svg%3E");
+    }
+
+    .glass-button {
+      border: 1px solid var(--k-line);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.025) 42%),
+        rgba(8, 10, 16, 0.58);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.18),
+        0 12px 36px rgba(0,0,0,.28);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
+      backdrop-filter: blur(22px) saturate(150%);
+    }
+
+    /* Phase 1 — contrast guarantee: a static top scrim behind the control
+       row. Deterministic (no background sampling): dark enough at the
+       control band to hold 4.5:1 for near-white text/icons over even a
+       pure-white photo, fading to transparent below the row. */
+    .top-scrim {
+      position: absolute; top: 0; left: 0; right: 0; height: 150px; z-index: 1;
+      background: linear-gradient(to bottom,
+        rgba(4,6,10,.80) 0,
+        rgba(4,6,10,.58) 52px,
+        rgba(4,6,10,.22) 104px,
+        rgba(4,6,10,0) 150px);
+      pointer-events: none;
+    }
+    /* Matching quiet veil behind the bottom title. */
+    .bottom-scrim {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 200px; z-index: 1;
+      background: linear-gradient(to top,
+        rgba(4,6,10,.62) 0,
+        rgba(4,6,10,.28) 100px,
+        rgba(4,6,10,0) 200px);
+      pointer-events: none;
+    }
+
+    /* Phase 1 — single top control row, same order/spacing/styling in both
+       apps: back link left; camera, mic, [tilt], pause right. Quiet icon
+       buttons (no glass pills); the scrim carries the contrast. */
+    .topbar {
+      position: absolute; z-index: 8;
+      /* Phase 2.5 — ride below overlaying top browser chrome (in-app
+         browsers): --vv-top is measured from visualViewport. */
+      top: calc(var(--vv-top, 0px) + env(safe-area-inset-top, 0px) + 12px);
+      left: 12px; right: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      pointer-events: none;
+    }
+    .topbar > * { pointer-events: auto; }
+    .t-back {
+      display: inline-flex; align-items: center; gap: 3px;
+      min-height: 48px; padding: 0 14px 0 2px; margin-left: -2px;
+      color: var(--k-ink); text-decoration: none; white-space: nowrap;
+      font-size: 15px; font-weight: 500;
+      text-shadow: 0 1px 10px rgba(0,0,0,.6);
+    }
+    .t-back svg { width: 20px; height: 20px; }
+    /* No drop-shadow filter on top-row SVGs: the SVG filter triggers a
+       compositor artifact where hover/active backgrounds smear and clip
+       against .stage { overflow: hidden }. The Phase 1 top scrim already
+       carries icon contrast. */
+    .t-back:hover { color: #fff; }
+    .t-actions { display: flex; align-items: center; gap: 2px; }
+
+    .pause-button,
+    .audio-button,
+    .lens-button,
+    .tilt-fab {
+      position: static;
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      color: var(--k-ink);
+      cursor: pointer;
+      text-shadow: 0 1px 10px rgba(0,0,0,.6);
+      transition: transform 180ms ease, background-color 180ms ease, color 180ms ease;
+    }
+    .pause-button:hover,
+    .audio-button:hover,
+    .lens-button:hover,
+    .tilt-fab:hover { background: rgba(255,255,255,.10); }
+    .pause-button:active,
+    .audio-button:active,
+    .lens-button:active,
+    .tilt-fab:active { transform: scale(.9); }
+    .pause-button svg,
+    .audio-button svg,
+    .lens-button svg,
+    .tilt-fab svg {
+      width: 23px; height: 23px;
+      /* No drop-shadow filter here: the SVG filter triggers a compositor
+         artifact where the button's hover background smears ~20px above the
+         button and gets clipped flat by .stage { overflow: hidden }. The
+         Phase 1 top scrim already carries icon contrast (15.5-18.5:1). */
+    }
+    .pause-button .play-icon { display: none; }
+    .pause-button[aria-pressed="true"] .pause-icon { display: none; }
+    .pause-button[aria-pressed="true"] .play-icon { display: block; margin-left: 2px; }
+    /* Listening / camera states keep their accent read, quiet-style. */
+    .audio-button[aria-pressed="true"],
+    .lens-button[aria-pressed="true"] { color: var(--k-accent); }
+    /* Tilt joins the row only when the device reports a usable motion sensor. */
+    .tilt-fab { display: none; }
+    .tilt-fab:not(:disabled) { display: grid; }
+    /* Ben's rule: controls for unavailable features are hidden outright, never
+       shown disabled. The tilt availability probe sets [hidden] on both. */
+    .motion-toggle[hidden], .tilt-fab[hidden] { display: none; }
+    /* Phase 1: the tilt button lives in the top row (quiet icon button —
+       see the .pause-button/.audio-button/.lens-button/.tilt-fab rule
+       above); its pressed state reads in the accent color. */
+    .tilt-fab[aria-pressed="true"] { color: var(--k-accent); }
+    .audio-button.listening .mic-icon { animation: audioPulse 1.45s ease-in-out infinite; }
+
+    .audio-sources { display: grid; gap: 8px; }
+    .audio-source {
+      width: 100%;
+      min-height: 49px;
+      display: grid;
+      grid-template-columns: 32px minmax(0,1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px;
+      background: rgba(255,255,255,.055);
+      text-align: left;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+    }
+    .audio-source:hover:not(:disabled) { background: rgba(255,255,255,.095); border-color: rgba(255,255,255,.22); }
+    .audio-source:disabled { opacity: .46; cursor: default; }
+    .audio-source.active { border-color: rgba(183,249,139,.34); background: rgba(183,249,139,.09); }
+    .audio-source.active .source-state { color: rgba(183,249,139,.85); font-weight: 600; }
+    .audio-source svg { width: 22px; height: 22px; color: rgba(255,255,255,.84); }
+    .audio-source strong { display: block; font-size: 14px; font-weight: 600; }
+    .audio-source small { display: block; margin-top: 2px; color: var(--k-muted); font-size: 12px; line-height: 1.25; }
+    .source-state { color: var(--k-muted); font-size: 12px; }
+    .audio-meter {
+      height: 3px;
+      margin-top: 12px;
+      overflow: hidden;
+      border-radius: 3px;
+      background: rgba(255,255,255,.08);
+    }
+    /* Phase 2: the meter lives inside the drawer mic row now. */
+    .audio-meter.row-meter { margin-top: 0; width: 56px; flex: none; align-self: center; }
+    .audio-meter span {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #4ad7c8, #b7f98b, #f4bc64);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 80ms linear;
+    }
+    .audio-status { min-height: 15px; margin-top: 8px; color: rgba(247,244,238,.58); font-size: 12px; line-height: 1.4; }
+
+    @keyframes audioPulse {
+      0%, 100% { transform: scale(.94); opacity: .72; }
+      50% { transform: scale(1.08); opacity: 1; }
+    }
+
+    /* Phase 2.5 — the drawer is a compact bottom deck: it never covers more
+       than ~42% of the visual viewport so the artwork stays in view. It
+       rides above overlaying bottom browser chrome via --vv-bottom
+       (measured from visualViewport) and layers below the top row
+       (z-index 6 < topbar 8), so its heading is always clear of the topbar
+       and the hide tab stays inside the visual viewport. Content scrolls
+       inside #drawerControls; the tab never moves. */
+    .drawer {
+      position: absolute;
+      z-index: 6;
+      left: 50%;
+      bottom: var(--vv-bottom, 0px);
+      width: min(680px, calc(100vw - 24px));
+      max-height: 42dvh;
+      display: flex;
+      flex-direction: column;
+      transform: translate(-50%, 100%);
+      transition: transform 420ms cubic-bezier(.22,.75,.18,1), bottom 200ms ease;
+      padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+      border: 1px solid var(--k-line);
+      border-bottom: 0;
+      border-radius: 26px 26px 0 0;
+      background:
+        radial-gradient(circle at 50% -20%, rgba(255,255,255,.18), transparent 52%),
+        linear-gradient(155deg, rgba(20, 26, 36, .76), rgba(6, 8, 13, .88));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.16),
+        0 -24px 70px rgba(0,0,0,.4);
+      -webkit-backdrop-filter: blur(30px) saturate(145%);
+      backdrop-filter: blur(30px) saturate(145%);
+    }
+    /* Phase 2.5 — the drawer gets its own scrim: tapping the artwork
+       dismisses the drawer, redundant with the tab, swipe-down, and
+       Escape. It sits above the canvas (z 5) but below the drawer (6)
+       and the top row (8), so the top row stays tappable. */
+    .drawer-scrim {
+      position: absolute; inset: 0; z-index: 5;
+      background: rgba(0, 0, 0, 0.28);
+      opacity: 0; pointer-events: none;
+      transition: opacity 300ms ease;
+    }
+    .drawer-scrim.show { opacity: 1; pointer-events: auto; }
+    .drawer.open { transform: translate(-50%, 0); }
+    /* The drawer's own scroll region: heading + tab stay fixed, everything
+       else scrolls inside the 42dvh cap. overscroll-behavior keeps the page
+       from chaining behind the (locked) body. */
+    #drawerControls { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+
+    /* Drawer tab: tight 52x44px touch target (≥44px floor) with a bold
+       30px chevron — no dead padding, instant tap affordance. */
+    .tool-tab {
+      position: absolute;
+      top: -44px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 52px;
+      height: 44px;
+      padding: 0;
+      border-radius: 14px 14px 0 0;
+      border-bottom: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+    /* Phase 1: the tab is a single ^ chevron that rotates to v when the
+       drawer is open — state reflected purely by aria-expanded, so every
+       close path (toggle, scrim, Escape) stays in sync. */
+    .tool-tab svg {
+      width: 30px; height: 30px; transform: translateY(-1px);
+      transition: transform 320ms cubic-bezier(.22,.75,.18,1);
+    }
+    .tool-tab[aria-expanded="true"] svg { transform: translateY(-1px) rotate(180deg); }
+    /* The audio (mic) button keeps its glyph swap for its own panel. */
+    /* Phase 2: the mic button is a direct toggle — mic glyph when off,
+       mic-off glyph when listening. No menu, no x swap. */
+    .audio-button .mic-off-icon { display: none; }
+    .audio-button[aria-pressed="true"] .mic-icon { display: none; }
+    .audio-button[aria-pressed="true"] .mic-off-icon { display: block; }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .mode {
+      min-width: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .mode strong {
+      display: block;
+      font-family: 'Clash Display', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .mode span {
+      display: block;
+      margin-top: 3px;
+      color: var(--k-muted);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    /* Style watermark: a large, faded style emblem behind the header —
+       clearly decorative, never a control. aria-hidden, pointer-events
+       none, no hover/press/focus states. The emblem cross-fades via
+       opacity transitions when data-style changes (all three icons stay
+       in the layer stack; only the active one is opaque). Opacity is low
+       enough that it never competes with the title text. */
+    .prism-mark {
+      position: absolute;
+      z-index: 0;
+      right: -14px;
+      top: -30px;
+      width: 142px;
+      height: 142px;
+      opacity: .12;
+      pointer-events: none;
+      user-select: none;
+    }
+    .prism-mark svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 480ms ease;
+    }
+    .prism-mark[data-style="classic"] .prism-icon,
+    .prism-mark[data-style="rosette"] .rosette-icon,
+    .prism-mark[data-style="vortex"] .vortex-icon { opacity: 1; }
+
+    .preset-switch {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 5px;
+      margin-bottom: 12px;
+      padding: 4px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 15px;
+      background: rgba(0,0,0,.2);
+    }
+    .preset-option {
+      min-width: 0;
+      border: 0;
+      border-radius: 11px;
+      padding: 8px 12px;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--k-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    }
+    .preset-icon {
+      width: 24px;
+      height: 24px;
+      flex: none;
+    }
+    .preset-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Icon-first presets: icon-only on narrow viewports, icon + label on
+       wider ones. The aria-label on each button keeps the accessible name
+       in both modes. */
+    @media (max-width: 639px) {
+      .preset-option .preset-label { display: none; }
+      .preset-option { padding: 8px 6px; }
+    }
+    .preset-option[aria-pressed="true"] {
+      color: var(--k-ink);
+      background: rgba(255,255,255,.105);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.11), 0 5px 18px rgba(0,0,0,.16);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .control {
+      min-width: 0;
+      padding: 14px 14px 12px;
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 16px;
+      background: rgba(255,255,255,.045);
+    }
+    .control-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .control label { color: rgba(255,255,255,.82); font-size: 12px; font-weight: 500; }
+    .value { color: var(--k-muted); font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11px; font-weight: 400; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+
+    input[type="range"] {
+      width: 100%;
+      height: 18px;
+      margin: 0;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 3px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, rgba(183,249,139,.82), rgba(91,160,255,.72), rgba(184,138,232,.76));
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 17px;
+      height: 17px;
+      margin-top: -7px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.86);
+      background: rgba(16,20,27,.94);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.08);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 3px;
+      border: 0;
+      border-radius: 2px;
+      background: linear-gradient(90deg, rgba(183,249,139,.82), rgba(91,160,255,.72), rgba(184,138,232,.76));
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.86);
+      background: rgba(16,20,27,.94);
+    }
+
+    .drawer-foot {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 18px;
+      margin-top: 16px;
+    }
+    .palette-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: rgba(255,255,255,.82);
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .palette-name { color: var(--k-muted); font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: normal; }
+    .palette-options {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .palette-option {
+      position: relative;
+      width: 39px;
+      height: 39px;
+      padding: 4px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 13px;
+      background: rgba(255,255,255,.04);
+      cursor: pointer;
+      transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
+    }
+    .palette-option::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 9px;
+      background: var(--palette);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,.28);
+    }
+    .palette-option:hover { border-color: rgba(255,255,255,.32); }
+    .palette-option:active { transform: scale(.96); }
+    .palette-option[aria-pressed="true"] {
+      border-color: rgba(255,255,255,.72);
+      background: rgba(255,255,255,.12);
+      box-shadow: 0 0 0 2px rgba(183,249,139,.18);
+    }
+    .palette-option.custom-add { display: grid; place-items: center; border-style: dashed; }
+    .palette-option.custom-add::before { display: none; }
+    .palette-option.custom-add span { font-size: 20px; line-height: 1; font-weight: 300; color: rgba(255,255,255,.58); }
+    .palette-option.custom-add[aria-expanded="true"] { border-color: rgba(183,249,139,.55); background: rgba(183,249,139,.08); }
+    .palette-option.custom-add[aria-expanded="true"] span { color: var(--k-accent); }
+    /* ---- Palette sheet: layered customization overlay ----
+       Layer 1 = palette library (built-ins + saved + New).
+       Layer 2 = editor (base color, harmony chips, preview, name).
+       Each layer is sized to fit the viewport with no scrolling; the
+       sticky footer keeps Cancel/Save reachable at all times. */
+    .palette-sheet { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+    .palette-sheet[hidden] { display: none; }
+    /* Phase 1 — one sheet component: full scrim behind the bottom dialog,
+       fading in with the sheet; outside-tap closes (x / back / scrim /
+       Escape close grammar). */
+    .palette-sheet .sheet-scrim {
+      position: absolute; inset: 0; z-index: 0;
+      background: rgba(0, 0, 0, 0.42);
+      pointer-events: auto;
+      opacity: 0;
+      transition: opacity 320ms ease;
+    }
+    .palette-sheet:not([hidden]) .sheet-scrim { opacity: 1; }
+    .sheet-card {
+      pointer-events: auto;
+      z-index: 1;
+      position: absolute; left: 50%; bottom: var(--vv-bottom, 0px); transform: translateX(-50%);
+      width: min(680px, calc(100vw - 24px));
+      /* Phase 2.5 — sheets are layered, never tall stacks: same 42dvh cap as
+         the drawer so the artwork is never fully covered. Layers scroll
+         inside (.sheet-layer / .sheet-grid already scroll). */
+      max-height: 42dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+      padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+      border: 1px solid var(--k-line); border-bottom: 0; border-radius: 22px 22px 0 0;
+      background:
+        radial-gradient(circle at 50% -20%, rgba(255,255,255,.18), transparent 52%),
+        linear-gradient(155deg, rgba(20, 26, 36, .76), rgba(6, 8, 13, .88));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.16),
+        0 -24px 70px rgba(0,0,0,.4);
+      -webkit-backdrop-filter: blur(30px) saturate(145%);
+      backdrop-filter: blur(30px) saturate(145%);
+    }
+    .sheet-layer { display: flex; flex-direction: column; min-height: 0; }
+    .sheet-layer[hidden] { display: none; }
+    /* Phase 2.6 — drill-down rows inside sheets reuse the lens-source row
+       grammar; the chevron sits in the action slot. Layer swaps read as
+       navigation, not a new overlay. */
+    .lens-source .source-chev { width: 18px; height: 18px; justify-self: end; color: var(--k-muted); }
+    .lens-source:hover .source-chev { color: var(--k-ink); }
+    @media (prefers-reduced-motion: no-preference) {
+      .sheet-layer.layer-enter { animation: layerIn 180ms ease-out; }
+      @keyframes layerIn {
+        from { opacity: 0; transform: translateX(14px); }
+        to { opacity: 1; transform: none; }
+      }
+    }
+    .sheet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .sheet-head h2 {
+      flex: 1 1 auto; margin: 0; text-align: center;
+      font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: rgba(255,255,255,.88);
+    }
+    .sheet-x, .sheet-back {
+      flex: none; width: 44px; height: 44px; border-radius: 13px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.72); cursor: pointer; display: grid; place-items: center;
+    }
+    .sheet-x svg, .sheet-back svg { width: 16px; height: 16px; }
+    .sheet-x:hover, .sheet-back:hover { color: #fff; border-color: rgba(255,255,255,.3); }
+    .sheet-head-pad { flex: none; width: 44px; }
+    .sheet-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+      gap: 12px 10px; overflow-y: auto; padding: 2px 2px 4px;
+      /* Bounded scroll region, same pattern as .sheet-edit: explicit
+         flex + min-height:0 so the grid deterministically shrinks and
+         scrolls on every engine instead of relying on the automatic
+         minimum-size rule (which WebKit fumbles), stranding tiles. */
+      flex: 1 1 auto; min-height: 0;
+    }
+    .sheet-tile {
+      position: relative; display: flex; flex-direction: column; gap: 6px;
+      -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
+    }
+    .sheet-swatch {
+      height: 46px; border-radius: 12px; padding: 0; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.12); background: var(--palette);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,.28);
+      transition: transform 120ms ease;
+    }
+    .sheet-tile.holding .sheet-swatch { transform: scale(.93); }
+    .sheet-swatch[aria-pressed="true"] {
+      border-color: rgba(255,255,255,.72);
+      box-shadow: 0 0 0 2px rgba(183,249,139,.18);
+    }
+    .sheet-tile-name {
+      font-size: 12px; color: rgba(255,255,255,.66); text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sheet-tile.sheet-new {
+      /* 68px matches a regular tile (46px swatch + 6px gap + ~16px label)
+         so the New tile never makes its row taller than its siblings and
+         pokes past the sheet edge on its own. */
+      align-items: center; justify-content: center; gap: 6px; min-height: 68px;
+      border: 1px dashed rgba(255,255,255,.24); border-radius: 12px; cursor: pointer;
+      background: none; color: rgba(255,255,255,.6);
+    }
+    .sheet-tile.sheet-new:hover { border-color: rgba(183,249,139,.5); color: var(--k-accent); }
+    .sheet-new-plus { font-size: 22px; font-weight: 300; line-height: 1; }
+    /* Trash-can delete prompt: anchored over the held tile (hold-to-delete
+       is the single delete path). KodaPalettes.confirmDelete() positions it
+       over the tile and clamps it inside the sheet bounds, so the prompt
+       (wider than a narrow tile) is never clipped by the sheet edge. */
+    .delete-prompt {
+      position: absolute; z-index: 5;
+      width: max-content; min-width: 184px;
+      max-width: min(250px, calc(100vw - 40px));
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; padding: 10px;
+      background: rgba(10,12,18,.86); border: 1px solid rgba(255,120,120,.45);
+      border-radius: 12px;
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    .delete-prompt-name {
+      font-size: 12px; color: #ffd9d9; max-width: 100%;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .delete-prompt-actions { display: flex; gap: 8px; }
+    .delete-prompt .sheet-btn {
+      flex: none; min-height: 0; padding: 7px 10px; font-size: 12px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px; border-radius: 9px;
+    }
+    .sheet-btn.danger {
+      border: 1px solid rgba(255,120,120,.5); background: rgba(120,20,20,.35);
+      color: #ffb3b3;
+    }
+    .sheet-btn.danger:hover { color: #fff; border-color: rgba(255,120,120,.8); }
+    .sheet-edit { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    /* Emergency fix 2026-09-27: the edit layer's content (header + editor +
+       footer) can exceed the 42dvh sheet cap. The footer was
+       position:sticky;bottom:0, so with the card as its scroll container it
+       rode up and overlapped the name input. Now the editor body scrolls
+       internally (same pattern as #drawerControls) and the footer is a
+       pinned flex item: input + Cancel/Save can never overlap. */
+    .custom-base { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,.72); cursor: pointer; }
+    #customBase { width: 44px; height: 34px; padding: 2px; font-size: 16px; border: 1px solid rgba(255,255,255,.18); border-radius: 9px; background: rgba(255,255,255,.06); cursor: pointer; }
+    .harmony-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .harmony-chip {
+      font-size: 12px; line-height: 1; padding: 9px 11px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.72); cursor: pointer;
+      transition: border-color 150ms ease, color 150ms ease, transform 150ms ease;
+    }
+    .harmony-chip:hover { color: #fff; border-color: rgba(255,255,255,.32); }
+    .harmony-chip:active { transform: scale(.95); }
+    .custom-preview { display: flex; gap: 4px; }
+    .custom-preview:empty { display: none; }
+    .custom-preview span { flex: 1 1 0; height: 22px; border-radius: 7px; border: 1px solid rgba(255,255,255,.14); }
+    #customName {
+      width: 100%; box-sizing: border-box; font-family: inherit;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px; color: #fff; font-size: 16px; padding: 12px;
+    }
+    #customName::placeholder { color: rgba(255,255,255,.35); }
+    /* iOS Safari auto-zooms any text field under 16px on focus, which used to
+       shove the Save button off-screen. Keep every text input at 16px so the
+       view never jumps. (Never maximum-scale=1 / user-scalable=no: that
+       harms accessibility.) */
+    input[type="text"], input[type="search"], textarea, select { font-size: 16px; }
+    #sheetLayerEdit .sheet-head { flex: none; }
+    #sheetLayerList .sheet-head { flex: none; }
+    .sheet-foot {
+      flex: none; display: flex; gap: 10px;
+      margin-top: 12px; padding-top: 10px;
+      background: linear-gradient(transparent, rgba(6,8,13,.88) 32%);
+    }
+    .sheet-btn {
+      flex: 1 1 0; min-height: 46px; border-radius: 12px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .sheet-btn.ghost {
+      border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.78);
+    }
+    .sheet-btn.primary {
+      border: 1px solid rgba(183,249,139,.4); background: rgba(183,249,139,.16);
+      color: var(--k-ink);
+    }
+    .sheet-btn:active { transform: scale(.98); }
+    .drawer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .motion-toggle,
+    .reset {
+      min-height: 48px;
+      border: 1px solid rgba(255,255,255,.1);
+      padding: 8px 12px;
+      border-radius: 11px;
+      background: rgba(255,255,255,.065);
+      color: rgba(255,255,255,.74);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .motion-icon, .reset-icon {
+      width: 18px;
+      height: 18px;
+      flex: none;
+    }
+    .motion-toggle[aria-pressed="true"] {
+      color: var(--k-ink);
+      border-color: rgba(183,249,139,.32);
+      background: rgba(183,249,139,.1);
+    }
+    .motion-toggle:disabled { cursor: default; opacity: .48; }
+    .motion-toggle:hover:not(:disabled), .reset:hover { color: white; background: rgba(255,255,255,.11); }
+    /* Phase 2: drawer live-input rows (lens + mic). Full-width rows sit
+       between the manipulation controls and the palette foot: identity ->
+       manipulation -> live inputs -> reset last. */
+    .drawer-live { display: grid; gap: 8px; margin-top: 10px; }
+    .live-row {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      min-height: 52px; padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,.1); border-radius: 12px;
+      background: rgba(255,255,255,.05); color: var(--k-ink);
+      font: inherit; text-align: left; cursor: pointer;
+    }
+    .live-row:hover { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.08); }
+    .live-icon { width: 22px; height: 22px; flex: none; color: rgba(255,255,255,.84); }
+    .live-text { flex: 1 1 auto; min-width: 0; }
+    .live-text strong { display: block; font-size: 14px; font-weight: 600; }
+    .live-text small { display: block; color: var(--k-muted); font-size: 12px; margin-top: 1px; }
+    .live-chev { width: 18px; height: 18px; flex: none; color: var(--k-muted); }
+    .live-state { font-size: 12px; font-weight: 600; color: var(--k-muted); }
+    .live-row[aria-pressed="true"] { border-color: rgba(183,249,139,.4); }
+    .live-row[aria-pressed="true"] .live-state { color: rgba(183,249,139,.9); }
+
+    /* Phase 2: toast — transient feedback pill, z-index above sheets. */
+    .toast {
+      position: fixed; z-index: 30; left: 50%;
+      bottom: calc(var(--vv-bottom, 0px) + env(safe-area-inset-bottom, 0px) + 76px);
+      transform: translateX(-50%) translateY(8px);
+      font-size: 13px; font-weight: 600; color: var(--k-ink);
+      background: rgba(20,24,32,.82); border: 1px solid var(--k-line);
+      border-radius: 999px; padding: 8px 18px;
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      opacity: 0; transition: opacity .35s ease, transform .35s ease;
+      white-space: nowrap; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Phase 2: the lens sheet content is taller than the palette sheet —
+       let its layer scroll inside the card. */
+    #lensSheet .sheet-layer { overflow-y: auto; }
+    .sheet-lede { margin: 0 0 12px; color: var(--k-muted); font-size: 12px; line-height: 1.45; }
+
+    /* Phase 2.5 — lens sheet source options are proper list rows (icon left,
+       title+subtitle, action right), matching the drawer-row grammar. The
+       buttons previously had no styles at all and rendered as oversized icon
+       tiles with colliding labels ("Live cameraRear camera Start"). */
+    .lens-sources { display: grid; gap: 8px; margin: 0 0 12px; }
+    .lens-source {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 56px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px;
+      background: rgba(255,255,255,.05);
+      color: var(--k-ink);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .lens-source:hover { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.08); }
+    .lens-source svg { width: 24px; height: 24px; justify-self: center; flex: none; }
+    .lens-source > span { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .lens-source strong {
+      font-size: 14px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lens-source small {
+      font-size: 12px; color: var(--k-muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .source-state { font-size: 12px; font-weight: 600; color: var(--k-muted); white-space: nowrap; }
+    .lens-source[aria-pressed="true"] { border-color: rgba(183,249,139,.4); }
+    .lens-source[aria-pressed="true"] .source-state { color: rgba(183,249,139,.9); }
+
+    /* Phase 2: L3 reset-scope prompt — small anchored confirmation in the
+       family style. Scopes are hold-to-confirm (500ms, movement cancels);
+       Cancel is a tap. */
+    .scope-prompt {
+      position: fixed; z-index: 40; width: 232px;
+      border: 1px solid var(--k-line); border-radius: 16px;
+      background: linear-gradient(155deg, rgba(24,30,42,.96), rgba(8,10,16,.96));
+      box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.14);
+      -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+      padding: 12px;
+    }
+    .scope-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--k-ink); }
+    .scope-hint { margin: 2px 0 10px; font-size: 11px; color: var(--k-muted); }
+    .scope-options { display: grid; gap: 6px; }
+    .scope-option {
+      display: flex; align-items: baseline; gap: 8px; width: 100%;
+      padding: 9px 10px; border-radius: 10px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05);
+      color: var(--k-ink); font: inherit; text-align: left;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+    .scope-option strong { font-size: 13px; font-weight: 600; }
+    .scope-option small { font-size: 11px; color: var(--k-muted); }
+    .scope-option.holding { background: rgba(183,249,139,.16); border-color: rgba(183,249,139,.5); }
+    .scope-cancel {
+      width: 100%; margin-top: 8px; padding: 9px 10px; border-radius: 10px;
+      border: 1px solid transparent; background: transparent;
+      color: var(--k-muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .scope-cancel:hover { color: var(--k-ink); background: rgba(255,255,255,.06); }
+
+    .interaction-note {
+      margin: 8px 0 0;
+      color: rgba(247,244,238,.5);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .status {
+      position: absolute;
+      z-index: 4;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 28px;
+      text-align: center;
+      background: #060608;
+    }
+    .status.visible { display: grid; }
+    .status p { max-width: 32ch; margin: 0; color: var(--k-muted); font-size: 13px; line-height: 1.5; }
+
+    /* Phase 2.5 — focus/active rings are inset box-shadows, never external
+       outlines: external outlines clip against overflow-hidden containers
+       (the drawer tab's ring, top-row icon buttons against the stage).
+       Touch targets keep their 44px minima; glyphs keep intentional
+       internal padding so rings never touch glyph edges. */
+    :focus-visible { outline: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible,
+    select:focus-visible, textarea:focus-visible,
+    [role="switch"]:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--k-accent);
+    }
+
+    @media (max-width: 600px) {
+      .pause-button, .audio-button, .tilt-fab, .lens-button { width: 46px; height: 46px; }
+      .drawer {
+        width: calc(100vw - 16px);
+        padding: 14px 14px max(14px, env(safe-area-inset-bottom));
+        border-radius: 22px 22px 0 0;
+      }
+      .sheet-card {
+        width: calc(100vw - 16px);
+        padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+      }
+      .drawer-head { margin-bottom: 13px; }
+      .controls { grid-template-columns: 1fr; gap: 7px; }
+      .control {
+        padding: 10px 12px 9px;
+        display: grid;
+        grid-template-columns: 88px minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
+        border-radius: 13px;
+      }
+      .control-top { display: block; margin: 0; }
+      .value { display: block; margin-top: 2px; }
+      .preset-switch { margin-bottom: 9px; }
+      .preset-option { padding: 8px 9px; }
+      .drawer-foot {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+        gap: 11px;
+        margin-top: 12px;
+      }
+      .palette-options { justify-content: space-between; gap: 6px; }
+      .palette-option { width: 38px; height: 38px; }
+      .drawer-actions { justify-content: space-between; }
+      .motion-toggle { flex: 1; }
+      .interaction-note { margin-top: 8px; }
+    }
+
+    @media (max-height: 560px) and (orientation: landscape) {
+      .drawer { padding-top: 13px; padding-bottom: max(11px, env(safe-area-inset-bottom)); }
+      .drawer-head { margin-bottom: 8px; }
+      .preset-switch { margin-bottom: 8px; }
+      .control { padding-top: 9px; padding-bottom: 8px; }
+      .drawer-foot { margin-top: 9px; }
+      .interaction-note { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .drawer, .pause-button, .audio-button, .tilt-fab, .lens-button { transition: none; }
+      .audio-button.listening svg { animation: none; }
+    }
+  </style>
+  <style>
+    /* ---- kodalivenow.com integration ---- */
+    /* The stage sits below the fixed site header (runtime-measured), already
+       clear of the notch: the app's own top safe-area offsets would
+       double-count it on notched phones, so they collapse to a plain inset
+       here (keeping the in-app-browser chrome offset). Side and bottom
+       insets are untouched. */
+    .stage .topbar { top: calc(var(--vv-top, 0px) + 12px); }
+    /* No-JS honesty: the app cannot run without JavaScript/WebGL2. */
+    .k-noscript {
+      position: absolute; inset: 0; z-index: 5;
+      display: grid; place-items: center; text-align: center; padding: 2rem;
+    }
+    .k-noscript p { color: var(--text); line-height: 1.6; max-width: 30ch; }
+    .k-noscript a { color: var(--teal); }
+    @media (prefers-reduced-motion: reduce) {
+      .t-back, .pause-button, .audio-button, .tilt-fab, .lens-button { transition: none; }
+    }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#stage">Skip to content</a>
+<header class="site-header">
+  <nav class="nav" aria-label="Primary">
+    <a class="brand" href="../../" aria-label="Koda &mdash; home">
+      <img src="../../assets/img/curl-mark.svg" alt="" width="30" height="30" />
+      <span>Koda</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="../../">Home</a></li>
+      <li><a href="../../about/">About</a></li>
+      <li><a href="../../now/">Now</a></li>
+      <li><a href="../../code/" aria-current="page">Code</a></li>
+      <li><a href="../../blog/">Blog</a></li>
+    </ul>
+  </nav>
+</header>
+  <main class="stage" id="stage" aria-label="Animated jewel-glass kaleidoscope">
+    <div class="k-title">
+      <h1>Kaleidoscope</h1>
+      <p>Jewel-glass explorer</p>
+    </div>
+  <noscript>
+    <div class="k-noscript">
+      <p>Kaleidoscope needs JavaScript and WebGL2 to run. <a href="../">Back to Koda&rsquo;s Code</a></p>
+    </div>
+  </noscript>
+
+    <canvas id="view" aria-hidden="true"></canvas>
+    <div class="noise" aria-hidden="true"></div>
+    <div class="top-scrim" aria-hidden="true"></div>
+    <div class="bottom-scrim" aria-hidden="true"></div>
+
+    <div class="topbar">
+      <a class="t-back" href="../" aria-label="Back to Koda's Code">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Koda&rsquo;s Code</span>
+      </a>
+      <div class="t-actions">
+    <button class="lens-button" id="lensButton" type="button" aria-label="Start camera lens" aria-haspopup="dialog" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.4 8.3A1.6 1.6 0 0 1 6 6.7h2.3l1.4-2.2a1 1 0 0 1 .8-.4h3a1 1 0 0 1 .8.4l1.4 2.2H18a1.6 1.6 0 0 1 1.6 1.6v8.9a1.6 1.6 0 0 1-1.6 1.6H6a1.6 1.6 0 0 1-1.6-1.6V8.3Z" stroke="currentColor" stroke-width="1.75"/><circle cx="12" cy="13.1" r="3.3" stroke="currentColor" stroke-width="1.75"/></svg>
+    </button>
+
+    <button class="audio-button" id="audioButton" type="button" aria-label="Turn microphone on" aria-pressed="false">
+      <svg class="mic-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.4a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.4Z" stroke="currentColor" stroke-width="1.75"/><path d="M6 11.2a6 6 0 0 0 12 0" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M12 17.2v3.3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      <svg class="mic-off-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.4a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.4Z" stroke="currentColor" stroke-width="1.75"/><path d="M6 11.2a6 6 0 0 0 12 0" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M12 17.2v3.3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M4.2 4.2l15.6 15.6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+    </button>
+
+    <button class="tilt-fab" id="tiltFab" type="button" aria-label="Turn tilt control on" aria-pressed="false" disabled>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><g transform="rotate(12 12 12)"><rect x="8.2" y="4" width="7.6" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="17.4" r=".9" fill="currentColor"/></g><path d="M4.6 8.3c-1.1 2-1.1 5.4 0 7.4M19.4 8.3c1.1 2 1.1 5.4 0 7.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+
+    <button class="pause-button" id="pause" type="button" aria-label="Pause animation" aria-pressed="false">
+      <svg class="pause-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.3 5.5v13 M14.7 5.5v13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <svg class="play-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.2 7.1l7.6 4.9-7.6 4.9V7.1Z" fill="currentColor"/></svg>
+    </button>
+      </div>
+    </div>
+
+    
+
+
+
+    
+
+    <div class="palette-sheet" id="lensSheet" hidden inert>
+      <div class="sheet-scrim" aria-hidden="true"></div>
+      <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="lensSheetTitle">
+        <section class="sheet-layer" id="lensSheetLayer" aria-label="Camera lens">
+          <header class="sheet-head">
+            <span class="sheet-head-pad" aria-hidden="true"></span>
+            <h2 id="lensSheetTitle">Lens</h2>
+            <button class="sheet-x" id="lensSheetClose" type="button" aria-label="Close lens">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </button>
+          </header>
+          <p class="sheet-lede">Point the camera at the world and the live view becomes the object chamber &mdash; broken into the mirrored facets. Video never leaves this device.</p>
+          <div class="lens-sources">
+            <button class="lens-source" id="lensCamera" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="7" width="13" height="11" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="m16 10.5 5-3v9l-5-3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+              <span><strong>Live camera</strong><small id="lensFacingLabel">Rear camera</small></span>
+              <span class="source-state" id="lensCameraState">Start</span>
+            </button>
+            <button class="lens-source" id="lensFlip" type="button">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 8h11l-3-3M17 16H6l3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span><strong>Switch camera</strong><small>Front and rear</small></span>
+              <span></span>
+            </button>
+            <label class="lens-source" for="lensPhotoInput">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.8" stroke="currentColor" stroke-width="1.5"/><path d="m5.5 17.5 4.5-4.5 3 3 2.5-2.5 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span><strong>Use a photo</strong><small>No camera permission needed</small></span>
+              <span></span>
+              <input type="file" id="lensPhotoInput" accept="image/*" hidden />
+            </label>
+          </div>
+          <!-- Phase 2.6 — Advanced is a drill-down, not a disclosure: one tap
+               takes over this same panel in place with a back button, showing
+               only the advanced controls (the Senses/palette-sheet pattern). -->
+          <button class="lens-source drill-row" id="lensAdvancedRow" type="button" data-lens-layer="lensAdvancedLayer">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" stroke="currentColor" stroke-width="1.7"/><circle cx="10" cy="17" r="2.2" stroke="currentColor" stroke-width="1.7"/></svg>
+            <span><strong>Advanced</strong><small>Film &middot; zoom &middot; recenter</small></span>
+            <svg class="source-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 6 15.5 12 9.5 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="lens-status" id="lensStatus" role="status" aria-live="polite">Select a source to begin.</div>
+          <button class="lens-off" id="lensOff" type="button" hidden>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6.3 6.5a8 8 0 1 0 11.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Turn lens off</span>
+          </button>
+        </section>
+        <section class="sheet-layer" id="lensAdvancedLayer" aria-label="Lens advanced settings" hidden>
+          <header class="sheet-head">
+            <button class="sheet-back" type="button" data-lens-back aria-label="Back to Lens">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <h2 id="lensAdvancedTitle">Advanced</h2>
+            <span class="sheet-head-pad" aria-hidden="true"></span>
+          </header>
+          <div class="control">
+            <div class="control-top"><label for="lensFilm">Dye film</label><span class="value" id="lensFilmValue">0.45</span></div>
+            <input id="lensFilm" data-lens="film" aria-label="Dye film tint strength" type="range" min="0" max="1" step="0.01" value="0.45" />
+          </div>
+          <div class="control">
+            <div class="control-top"><label for="lensZoom">Chamber zoom</label><span class="value" id="lensZoomValue">1.00&times;</span></div>
+            <input id="lensZoom" data-lens="zoom" aria-label="Chamber zoom" type="range" min="0.5" max="2" step="0.01" value="1" />
+          </div>
+          <button class="lens-source" id="lensRecenter" type="button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>
+            <span><strong>Recenter view</strong><small>Reset pan</small></span>
+            <span></span>
+          </button>
+        </section>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="drawer-scrim" id="drawerScrim" aria-hidden="true"></div>
+    <section class="drawer" id="drawer" aria-label="Kaleidoscope controls">
+      <button class="tool-tab glass-button" id="toolTab" type="button" aria-label="Open controls" aria-expanded="false" aria-controls="drawer">
+        <svg class="chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.5 14.5 12 9l5.5 5.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+      <div class="drawer-head">
+        <div class="mode">
+          <strong id="drawerTitle">Kaleidoscope</strong>
+          <span id="modeName">Classic prism</span>
+        </div>
+        <div class="prism-mark" id="prismMark" data-style="classic" aria-hidden="true">
+          <svg class="prism-icon" viewBox="0 0 28 28" fill="none"><path d="m14 3 10 18H4L14 3Z" stroke="rgba(255,255,255,.78)" stroke-width="1.4"/><path d="M14 3v18M4 21l15-9M24 21 9-9" stroke="rgba(183,249,139,.74)" stroke-width="1.2"/></svg>
+          <svg class="rosette-icon" viewBox="0 0 28 28" fill="none"><path d="M14 3.5c2.2 3.4 3.6 3.8 7.5 2.7-.9 3.9-.2 5.1 3.4 7-3.6 1.8-4.3 3.1-3.4 7-3.9-1.1-5.3-.6-7.5 2.7-2.2-3.3-3.6-3.8-7.5-2.7.9-3.9.2-5.2-3.4-7 3.6-1.9 4.3-3.1 3.4-7 3.9 1.1 5.3.7 7.5-2.7Z" stroke="rgba(255,255,255,.8)" stroke-width="1.25"/><circle cx="14" cy="13.2" r="3.1" stroke="rgba(183,249,139,.74)" stroke-width="1.2"/></svg>
+          <svg class="vortex-icon" viewBox="0 0 28 28" fill="none"><path d="M14 4.2c5.8 0 9.8 4.2 9.8 9.1 0 5.7-5 10.2-10.4 10.2-4.8 0-8.7-3.3-8.7-7.6 0-4.7 4.1-8.4 8.6-8.4 3.7 0 6.7 2.5 6.7 5.8 0 3.4-3 6.1-6.2 6.1-2.6 0-4.7-1.8-4.7-4.1 0-2.2 1.9-4 4-4 1.5 0 2.7 1 2.7 2.3" stroke="rgba(255,255,255,.8)" stroke-width="1.35" stroke-linecap="round"/><circle cx="15.8" cy="13.7" r="1.2" fill="rgba(183,249,139,.74)"/></svg>
+        </div>
+      </div>
+
+      <div id="drawerControls" inert>
+      <div class="preset-switch" role="group" aria-label="Kaleidoscope style">
+        <button class="preset-option" type="button" data-style="classic" aria-pressed="true" aria-label="Classic prism">
+          <svg class="preset-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="m14 3 10 18H4L14 3Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 3v18M4 21l15-9M24 21 9-9" stroke="currentColor" stroke-width="1.2" opacity=".68"/></svg>
+          <span class="preset-label">Classic prism</span>
+        </button>
+        <button class="preset-option" type="button" data-style="rosette" aria-pressed="false" aria-label="Rose window">
+          <svg class="preset-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M14 3.5c2.2 3.4 3.6 3.8 7.5 2.7-.9 3.9-.2 5.1 3.4 7-3.6 1.8-4.3 3.1-3.4 7-3.9-1.1-5.3-.6-7.5 2.7-2.2-3.3-3.6-3.8-7.5-2.7.9-3.9.2-5.2-3.4-7 3.6-1.9 4.3-3.1 3.4-7 3.9 1.1 5.3.7 7.5-2.7Z" stroke="currentColor" stroke-width="1.25"/><circle cx="14" cy="13.2" r="3.1" stroke="currentColor" stroke-width="1.2" opacity=".68"/></svg>
+          <span class="preset-label">Rose window</span>
+        </button>
+        <button class="preset-option" type="button" data-style="vortex" aria-pressed="false" aria-label="Infinity well">
+          <svg class="preset-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M14 4.2c5.8 0 9.8 4.2 9.8 9.1 0 5.7-5 10.2-10.4 10.2-4.8 0-8.7-3.3-8.7-7.6 0-4.7 4.1-8.4 8.6-8.4 3.7 0 6.7 2.5 6.7 5.8 0 3.4-3 6.1-6.2 6.1-2.6 0-4.7-1.8-4.7-4.1 0-2.2 1.9-4 4-4 1.5 0 2.7 1 2.7 2.3" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><circle cx="15.8" cy="13.7" r="1.2" fill="currentColor" opacity=".68"/></svg>
+          <span class="preset-label">Infinity well</span>
+        </button>
+      </div>
+      <div class="controls">
+        <div class="control">
+          <div class="control-top"><label for="focus">Focus</label><span class="value" id="focusValue">1.00×</span></div>
+          <input id="focus" data-setting="zoom" aria-label="Focus" type="range" min="0.72" max="1.70" step="0.01" value="1.00" />
+        </div>
+        <div class="control">
+          <div class="control-top"><label for="drift">Drift</label><span class="value" id="driftValue">0.58×</span></div>
+          <input id="drift" data-setting="speed" aria-label="Drift" type="range" min="0.10" max="1.45" step="0.01" value="0.58" />
+        </div>
+        <div class="control">
+          <div class="control-top"><label for="light">Light</label><span class="value" id="lightValue">1.08×</span></div>
+          <input id="light" data-setting="glow" aria-label="Light" type="range" min="0.62" max="1.45" step="0.01" value="1.08" />
+        </div>
+      </div>
+
+      <div class="palette-control">
+        <div class="palette-head"><span>Palette</span><span class="palette-name" id="paletteName">Cathedral jewel</span></div>
+        <div class="palette-options" id="paletteOptions" role="group" aria-label="Color palette"></div>
+      </div>
+
+      <div class="drawer-live">
+        <button class="live-row" id="lensRow" type="button" aria-haspopup="dialog" aria-label="Open lens controls">
+          <svg class="live-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.4 8.3A1.6 1.6 0 0 1 6 6.7h2.3l1.4-2.2a1 1 0 0 1 .8-.4h3a1 1 0 0 1 .8.4l1.4 2.2H18a1.6 1.6 0 0 1 1.6 1.6v8.9a1.6 1.6 0 0 1-1.6 1.6H6a1.6 1.6 0 0 1-1.6-1.6V8.3Z" stroke="currentColor" stroke-width="1.75"/><circle cx="12" cy="13.1" r="3.3" stroke="currentColor" stroke-width="1.75"/></svg>
+          <span class="live-text"><strong>Lens</strong><small id="lensRowSub">Off</small></span>
+          <svg class="live-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 6 15.5 12 9.5 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="live-row" id="micRow" type="button" aria-pressed="false" aria-label="Turn microphone on">
+          <svg class="live-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.4a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.4Z" stroke="currentColor" stroke-width="1.75"/><path d="M6 11.2a6 6 0 0 0 12 0" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M12 17.2v3.3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <span class="live-text"><strong>Microphone</strong><small id="micRowSub">Off</small></span>
+          <span class="audio-meter row-meter" aria-hidden="true"><span id="audioMeter"></span></span>
+        </button>
+      </div>
+
+      <div class="drawer-foot">
+        
+        <div class="drawer-actions">
+          <button class="motion-toggle" id="motion" type="button" aria-pressed="false" disabled aria-label="Tilt control: checking availability">
+            <svg class="motion-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><g transform="rotate(12 12 12)"><rect x="8.2" y="4" width="7.6" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="17.4" r=".9" fill="currentColor"/></g><path d="M4.6 8.3c-1.1 2-1.1 5.4 0 7.4M19.4 8.3c1.1 2 1.1 5.4 0 7.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <span class="motion-label">Checking tilt…</span>
+          </button>
+          <button class="reset" id="reset" type="button" aria-label="Reset all settings">
+            <svg class="reset-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.6 9.2a8 8 0 1 1-.5 5.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4.6 4.8v4.4h4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
+      <p class="interaction-note">Drag anywhere to reposition the glass. Your composition stays put when released. While tilt is on, touching holds the design still; tilt influence resumes when you let go.</p>
+      </div>
+    </section>
+
+    <div class="palette-sheet" id="paletteSheet" hidden inert>
+      <div class="sheet-scrim" aria-hidden="true"></div>
+      <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <section class="sheet-layer" id="sheetLayerList" aria-label="Palette library">
+          <header class="sheet-head">
+            <span class="sheet-head-pad" aria-hidden="true"></span>
+            <h2 id="sheetTitle">Palettes</h2>
+            <button class="sheet-x" id="sheetClose" type="button" aria-label="Close palettes">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </button>
+          </header>
+          <div class="sheet-grid" id="sheetGrid" role="group" aria-label="Palettes"></div>
+        </section>
+        <section class="sheet-layer" id="sheetLayerEdit" aria-label="Palette editor" hidden>
+          <header class="sheet-head">
+            <button class="sheet-back" id="sheetBack" type="button" aria-label="Back to palettes">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <h2>New palette</h2>
+            <span class="sheet-head-pad" aria-hidden="true"></span>
+          </header>
+          <div class="sheet-edit">
+            <label class="custom-base" for="customBase">Base
+              <input type="color" id="customBase" value="#7A48E8" aria-label="Base color for aligned hue suggestions" />
+            </label>
+            <div class="harmony-chips" role="group" aria-label="Aligned hue suggestions">
+              <button type="button" class="harmony-chip" data-harmony="complementary">Complementary</button>
+              <button type="button" class="harmony-chip" data-harmony="analogous">Analogous</button>
+              <button type="button" class="harmony-chip" data-harmony="triadic">Triadic</button>
+              <button type="button" class="harmony-chip" data-harmony="square">Square</button>
+              <button type="button" class="harmony-chip" data-harmony="split">Split</button>
+              <button type="button" class="harmony-chip" data-harmony="surprise">Surprise me</button>
+            </div>
+            <div class="custom-preview" id="customPreview" aria-label="Generated palette preview"></div>
+            <input type="text" id="customName" maxlength="40" placeholder="Name this palette…" aria-label="Custom palette name" autocomplete="off" />
+          </div>
+          <footer class="sheet-foot">
+            <button type="button" class="sheet-btn ghost" id="customCancel">Cancel</button>
+            <button type="button" class="sheet-btn primary" id="customSave">Save</button>
+          </footer>
+        </section>
+      </div>
+    </div>
+
+    <div class="status" id="status" role="status"><p>WebGL 2 is required to render the kaleidoscope on this device.</p></div>
+  </main>
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <div class="footer-brand">
+        <img src="../../assets/img/curl-mark.svg" alt="" width="34" height="34" />
+        <span>Koda</span>
+      </div>
+      <div class="footer-icons">
+        <a href="https://www.threads.com/@kodalivenow" aria-label="Koda on Threads" rel="me"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.263 11.097c-.03-3.486-1.92-5.586-5.111-5.586-2.13 0-3.922.963-4.863 2.499l2.062 1.438c.535-.843 1.272-1.543 2.628-1.543 1.528 0 2.318.85 2.544 2.431a15 15 0 0 0-2.236-.173c-4.125 0-6.068 1.867-6.068 4.336s1.943 3.99 4.804 3.99c3.139 0 5.013-2.115 5.781-4.735.798.361 1.348 1.204 1.348 2.47 0 3.387-3.907 5.232-7.22 5.232-4.885 0-8.077-3.207-8.077-8.424 0-6.392 4.223-10.487 9.9-10.487 3.808 0 5.69 1.671 6.97 3.914l2.108-1.475C21.44 2.078 18.331 0 13.663 0 6.227 0 1.168 5.277 1.168 12.934c0 7 4.953 11.066 10.856 11.066 4.878 0 9.809-2.846 9.809-7.716 0-2.545-1.46-4.231-3.569-5.187m-6.33 4.855c-1.077 0-2.026-.512-2.026-1.453 0-1.483 1.822-1.934 3.606-1.934.678 0 1.34.045 1.927.173-.422 1.927-1.671 3.215-3.508 3.214Z"/></svg></a>
+        <a href="https://www.instagram.com/kodalivenow" aria-label="Koda on Instagram" rel="me"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg></a>
+      </div>
+      <p class="footer-handle">@kodalivenow on Threads &amp; Instagram</p>
+    </div>
+    <div class="footer-meta">
+      <p>&copy; 2026 Koda</p>
+      <p class="footer-colophon">Designed, written, and built by me.</p>
+    </div>
+  </div>
+</footer>
+
+  <script src="../shared/koda-palettes.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const canvas = document.getElementById('view');
+      const status = document.getElementById('status');
+      const pauseButton = document.getElementById('pause');
+      const audioButton = document.getElementById('audioButton');
+      const audioMeter = document.getElementById('audioMeter');
+      const drawer = document.getElementById('drawer');
+      const drawerControls = document.getElementById('drawerControls');
+      const toolTab = document.getElementById('toolTab');
+      const drawerScrim = document.getElementById('drawerScrim');
+      const resetButton = document.getElementById('reset');
+      const motionButton = document.getElementById('motion');
+      const tiltFab = document.getElementById('tiltFab');
+      const paletteName = document.getElementById('paletteName');
+      const modeName = document.getElementById('modeName');
+      const prismMark = document.getElementById('prismMark');
+      const stage = document.getElementById('stage');
+
+      const defaults = Object.freeze({ zoom: 1, speed: 0.58, glow: 1.08, palette: 'cathedral', style: 'classic' });
+      const settings = { ...defaults };
+      // Shared palette math + localStorage persistence (code/shared/koda-palettes.js).
+      // Settings are per-app and versioned; user palettes are shared across apps.
+      const paletteLib = KodaPalettes.createPaletteLibrary({
+        cathedral: { name: 'Cathedral jewel', colors: ['#C1121F', '#E85D04', '#FFBA08', '#00A86B', '#0F52BA', '#7209B7', '#F5F0E6'] },
+        tidepool: { name: 'Tidepool', colors: ['#052F5F', '#087F8C', '#20BF9F', '#42E2B8', '#4169E1', '#8C6FF7', '#E6FFF7'] },
+        solar: { name: 'Solar ember', colors: ['#7A1025', '#D52941', '#F26419', '#F6AE2D', '#2E86AB', '#A7D8F0', '#FCECC9'] },
+        orchid: { name: 'Orchid night', colors: ['#24135F', '#355CDE', '#7A48E8', '#BE4BDB', '#EE5AA7', '#52D6E8', '#F4E9FF'] },
+        verdant: { name: 'Verdant glass', colors: ['#123C2E', '#087F5B', '#0BA6A6', '#8BD450', '#F2B134', '#59A5D8', '#F4F1DE'] }
+      });
+      const store = KodaPalettes.createSettingsStore('kaleidoscope', {
+        ...defaults, lensFilm: 0.45, lensZoom: 1.0, customColors: null, customName: ''
+      });
+      store.load();
+      Object.assign(settings, store.getState());
+      // Transient id for a generated-but-unsaved custom set. The colors are
+      // persisted in settings.customColors so the selection survives reload.
+      const WORKING_ID = 'custom:working';
+      let workingPalette = null;
+      function paletteEntry(id) {
+        if (id === WORKING_ID && workingPalette) return workingPalette;
+        return paletteLib.get(id);
+      }
+      const styles = Object.freeze({
+        classic: { name: 'Classic prism', description: '60° chamber · six axes · twelve mirrored cells', weights: [1, 0, 0] },
+        rosette: { name: 'Rose window', description: '36° twin-mirror fold · ten reflected petals', weights: [0, 1, 0] },
+        vortex: { name: 'Infinity well', description: 'Circular inversion · eight mirrored chambers', weights: [0, 0, 1] }
+      });
+      let paused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let elapsed = 0;
+      let lastFrame = performance.now();
+      let frameId = 0;
+      let gl, program, vao;
+      let uniforms = {};
+      const styleCurrent = new Float32Array([1, 0, 0]);
+      const styleTarget = new Float32Array([1, 0, 0]);
+      let paletteCurrent = new Float32Array(21);
+      let paletteTarget = new Float32Array(21);
+      let pointerActive = false;
+      let pointerId = null;
+      const pointerStart = { x: 0, y: 0 };
+      const pointerOrigin = { x: 0, y: 0 };
+      const dragTarget = { x: 0, y: 0 };
+      const settledInput = { x: 0, y: 0 };
+      const displayInput = { x: 0, y: 0 };
+      const composedInput = { x: 0, y: 0 };
+      const motionTarget = { x: 0, y: 0 };
+      let motionBaseline = null;
+      let motionListening = false;
+      let motionEnabled = false;
+      // Tilt availability probe state: null = probing, true/false = resolved.
+      // When false, tilt is forced off and both tilt controls are hidden.
+      let tiltAvailable = null;
+      let motionReceived = false;
+      // Tilt influence is suspended while a touch is active (the design holds
+      // where it is) and resumes on release. The enabled state persists across
+      // touches until the user toggles tilt off.
+      let tiltSuspended = false;
+      let audioContext = null;
+      let audioStream = null;
+      let audioSourceNode = null;
+      let analyser = null;
+      let frequencyData = null;
+      let activeAudioSource = null;
+      // ---- Camera lens (object chamber) ----
+      const lensButton = document.getElementById('lensButton');
+      const lensSheet = document.getElementById('lensSheet');
+      const lensSheetClose = document.getElementById('lensSheetClose');
+      const lensRow = document.getElementById('lensRow');
+      const lensRowSub = document.getElementById('lensRowSub');
+      const micRow = document.getElementById('micRow');
+      const micRowSub = document.getElementById('micRowSub');
+      const toastEl = document.getElementById('toast');
+      const lensCameraButton = document.getElementById('lensCamera');
+      const lensCameraState = document.getElementById('lensCameraState');
+      const lensFacingLabel = document.getElementById('lensFacingLabel');
+      const lensFlipButton = document.getElementById('lensFlip');
+      const lensPhotoInput = document.getElementById('lensPhotoInput');
+      const lensRecenterButton = document.getElementById('lensRecenter');
+      const lensOffButton = document.getElementById('lensOff');
+      const lensStatus = document.getElementById('lensStatus');
+      const lensFilmInput = document.getElementById('lensFilm');
+      const lensFilmValue = document.getElementById('lensFilmValue');
+      const lensZoomInput = document.getElementById('lensZoom');
+      const lensZoomValue = document.getElementById('lensZoomValue');
+      let lensStream = null;
+      let lensVideo = null;
+      let lensTexture = null;
+      let lensMode = null; // null | 'camera' | 'photo'
+      let lensFacing = 'environment';
+      let lensMixCur = 0;
+      let lensMixTarget = 0;
+      let lensFilm = 0.45;
+      let lensZoom = 1.0;
+      const lensPanTarget = { x: 0, y: 0 };
+      const lensPanShown = { x: 0, y: 0 };
+      const lensDragOrigin = { x: 0, y: 0 };
+      const audioReactive = { low: 0, mid: 0, high: 0, energy: 0 };
+      const audioVisual = { low: 0, mid: 0, high: 0, energy: 0 };
+
+      function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+
+      function hexToLinear(hex) {
+        return [1, 3, 5].map(index => {
+          const value = parseInt(hex.slice(index, index + 2), 16) / 255;
+          return value <= .04045 ? value / 12.92 : Math.pow((value + .055) / 1.055, 2.4);
+        });
+      }
+
+      function paletteFloats(id) {
+        const entry = paletteEntry(id);
+        return new Float32Array(entry.colors.flatMap(hexToLinear));
+      }
+
+      paletteCurrent = paletteFloats(defaults.palette);
+      paletteTarget = paletteFloats(defaults.palette);
+
+      const vertexSource = `#version 300 es
+        in vec2 aPosition;
+        void main() {
+          gl_Position = vec4(aPosition, 0.0, 1.0);
+        }
+      `;
+
+      const fragmentSource = `#version 300 es
+        precision highp float;
+        uniform vec2 uResolution;
+        uniform float uTime;
+        uniform float uZoom;
+        uniform float uGlow;
+        uniform vec3 uStyleWeights;
+        uniform vec2 uInput;
+        uniform vec4 uAudio;
+        uniform vec3 uPalette[7];
+        uniform sampler2D uLens;
+        uniform float uLensMix;
+        uniform vec2 uLensPan;
+        uniform float uLensFilm;
+        uniform float uLensZoom;
+        uniform float uLensFlip;
+        out vec4 outColor;
+
+        #define PI 3.141592653589793
+        #define TAU 6.283185307179586
+
+        float hash21(vec2 p) {
+          p = fract(p * vec2(123.34, 456.21));
+          p += dot(p, p + 45.32);
+          return fract(p.x * p.y);
+        }
+
+        mat2 rotate2d(float a) {
+          float s = sin(a), c = cos(a);
+          return mat2(c, -s, s, c);
+        }
+
+        vec3 jewel(float h) {
+          h = fract(h);
+          if (h < .1428) return uPalette[0];
+          if (h < .2856) return uPalette[1];
+          if (h < .4284) return uPalette[2];
+          if (h < .5712) return uPalette[3];
+          if (h < .7140) return uPalette[4];
+          if (h < .8568) return uPalette[5];
+          return uPalette[6];
+        }
+
+        float roundedBox(vec2 p, vec2 b, float r) {
+          vec2 q = abs(p) - b + r;
+          return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+        }
+
+        vec4 glassLayer(vec2 p, float scale, vec2 drift, float seed) {
+          vec2 grid = p * scale + drift;
+          vec2 id = floor(grid);
+          vec2 f = fract(grid) - .5;
+          float n = hash21(id + seed);
+          float n2 = hash21(id.yx + seed * 2.73);
+          float n3 = hash21(id + seed * 7.19 + 13.7);
+          f = rotate2d((n - .5) * 2.4 + .18 * sin(uTime * .12 + n3 * TAU)) * f;
+
+          vec2 sz = vec2(mix(.18, .39, n2), mix(.16, .36, n3));
+          float dCircle = length(f / sz) - 1.0;
+          float dDiamond = abs(f.x) / sz.x + abs(f.y) / sz.y - 1.0;
+          float dBox = roundedBox(f, sz * .72, min(sz.x, sz.y) * .32);
+          float selector = fract(n * 7.13);
+          float d = selector < .34 ? dCircle : (selector < .68 ? dDiamond : dBox);
+
+          float body = smoothstep(.045, -.025, d);
+          float border = smoothstep(.055, .008, abs(d));
+          float inner = smoothstep(-.20, -.015, d);
+          vec3 color = jewel(fract(n * 1.71 + seed * .113));
+
+          float directional = .72 + .36 * dot(normalize(vec2(.65, .76)), normalize(f + vec2(.03)));
+          float caustic = pow(max(0.0, 1.0 - length((f - vec2(-.12, .14)) / max(sz, .08))), 8.0);
+          float glint = pow(max(0.0, 1.0 - length((f - vec2(.11, -.09)) / max(sz * .42, .05))), 18.0);
+
+          vec3 lit = color * (directional + .22 * inner);
+          lit += color * caustic * 1.15 + vec3(1.0, .96, .84) * glint * .72;
+          lit *= body;
+          lit *= 1.0 - border * .58;
+          return vec4(lit, body * mix(.58, .88, n2));
+        }
+
+        void main() {
+          vec2 p = (gl_FragCoord.xy * 2.0 - uResolution.xy) / min(uResolution.x, uResolution.y);
+          // Layer several slow, incommensurate motions so the instrument keeps
+          // evolving without feeling mechanical or repeating on a short loop.
+          float t = uTime;
+          float breathe = 1.0 + .038 * sin(t * .17) + .016 * sin(t * .43 + 1.2) + uAudio.x * .055;
+          p *= uZoom * breathe;
+          float radius = length(p);
+          float angle = atan(p.y, p.x);
+          angle += .052 * sin(t * .13) + .021 * sin(t * .31 + 1.7) + .009 * sin(t * .71);
+          angle += .012 * t + uAudio.x * .035 * sin(t * 1.7 + radius * 3.0);
+
+          // Classic: the 60-degree three-mirror prism fold.
+          float classicSector = PI / 3.0;
+          float classicWrapped = mod(angle + PI, classicSector);
+          float classicFolded = abs(classicWrapped - classicSector * .5);
+          vec2 classicSource = vec2(cos(classicFolded), sin(classicFolded)) * radius;
+
+          // Rose window: a 36-degree two-mirror rosette with ten reflected petals.
+          float roseSector = TAU / 10.0;
+          float roseWrapped = mod(angle + PI, roseSector);
+          float roseFolded = abs(roseWrapped - roseSector * .5);
+          float roseRadius = radius * (.91 + .08 * sin(radius * 8.5 - uTime * .13));
+          vec2 roseSource = vec2(cos(roseFolded), sin(roseFolded)) * roseRadius;
+          roseSource = rotate2d(.13 * sin(radius * 4.8 + uTime * .07)) * roseSource;
+
+          // Infinity well: circular inversion feeds a log-polar tunnel into an
+          // eight-way mirror fold, creating depth unlike either planar preset.
+          vec2 inverted = p / max(dot(p, p), .035);
+          float tunnelAngle = atan(inverted.y, inverted.x) + .12 * sin(log(length(inverted) + .01) * 2.4 - t * .17);
+          float tunnelSector = TAU / 8.0;
+          float tunnelWrapped = mod(tunnelAngle + PI, tunnelSector);
+          float tunnelFolded = abs(tunnelWrapped - tunnelSector * .5);
+          float tunnelBand = fract(log(length(inverted) + .01) * .38 - t * .025);
+          float tunnelRadius = mix(.22, 1.08, tunnelBand);
+          vec2 tunnelSource = vec2(cos(tunnelFolded), sin(tunnelFolded)) * tunnelRadius;
+          tunnelSource += vec2(.08 * sin(tunnelBand * TAU), .05 * cos(tunnelBand * TAU));
+
+          vec3 styleWeights = max(uStyleWeights, vec3(0.0));
+          styleWeights /= max(dot(styleWeights, vec3(1.0)), .001);
+          vec2 source = classicSource * styleWeights.x + roseSource * styleWeights.y + tunnelSource * styleWeights.z;
+          // Lens object chamber: the same mirror fold, captured before drift
+          // and touch input, so the camera/photo feed is sampled through the
+          // facets themselves.
+          vec2 foldSource = source;
+          // Idle choreography: layered slow motion with gentle variation.
+          // A ~1-minute swell envelope periodically deepens the drift, the
+          // counter-turn and the breathing; a soft zoom "breathing" keeps the
+          // chamber feeling alive at a glance. Interaction (uInput), audio
+          // (uAudio) and lens (uLens*) paths are untouched.
+          float swell = smoothstep(.5, 1.0, sin(t * .11 + 1.2));
+          vec2 autonomousDrift = vec2(
+            .16 * sin(t * .23) + .065 * sin(t * .61 + 1.3) + .042 * swell * sin(t * .083 + .7),
+            .13 * cos(t * .19 + .4) + .055 * cos(t * .47 - .8) + .038 * swell * cos(t * .097 - 1.1)
+          );
+          float idleTurn = .043 * sin(t * .29) + .017 * cos(t * .67)
+            - .034 * sin(t * .113 + 2.1) * (1.0 + .6 * swell);
+          source = rotate2d(idleTurn) * source;
+          float idleBreath = 1.0 + .016 * sin(t * .11 + .6) + .008 * sin(t * .23 + 1.9)
+            + .012 * swell * sin(t * .088);
+          source *= idleBreath;
+          source += autonomousDrift + uInput * .48;
+          source.x += (.035 + uAudio.y * .028) * sin(radius * 9.0 - t * .17);
+          float wrapped = classicWrapped * styleWeights.x + roseWrapped * styleWeights.y + tunnelWrapped * styleWeights.z;
+          float sector = classicSector * styleWeights.x + roseSector * styleWeights.y + tunnelSector * styleWeights.z;
+
+          vec2 driftA = vec2(
+            .42 * sin(t * .17) + .09 * sin(t * .53 + .5) + .05 * swell * sin(t * .094 + 2.0),
+            -.34 * cos(t * .13 + .8) + .08 * sin(t * .41) + .05 * swell * cos(t * .103 + .4)
+          );
+          vec2 driftB = vec2(
+            -.31 * sin(t * .11 + 1.6) + .10 * cos(t * .37) + .05 * swell * cos(t * .089 + 1.1),
+            .39 * sin(t * .15 + .2) + .07 * cos(t * .59) + .05 * swell * sin(t * .107 + 2.6)
+          );
+          vec2 driftC = vec2(
+            .27 * cos(t * .14 - .7) + .08 * sin(t * .49) + .05 * swell * sin(t * .099 + .9),
+            .30 * sin(t * .12 + 2.1) + .09 * cos(t * .33) + .05 * swell * cos(t * .092 + 1.7)
+          );
+
+          vec3 color = vec3(.0038, .0038, .0078);
+          vec4 a = glassLayer(source, 2.55, driftA, 1.7);
+          color = mix(color, a.rgb + color * .38, a.a);
+          vec4 b = glassLayer(source * rotate2d(.36), 3.75, driftB, 8.1);
+          color = mix(color, b.rgb + color * .32, b.a * .80);
+          vec4 c = glassLayer(source * rotate2d(-.48), 5.45, driftC, 19.3);
+          color = mix(color, c.rgb + color * .24, c.a * .66);
+
+          // Lens chamber: the camera/photo feed sampled through the folded
+          // facets, so the repeating design is built from pieces of the live
+          // view. The dye palette tints the pieces like a translucent film.
+          vec2 lensUV = foldSource * (0.5 * uLensZoom) + 0.5 + uLensPan;
+          lensUV.x = mix(lensUV.x, 1.0 - lensUV.x, uLensFlip);
+          lensUV = abs(fract(lensUV) * 2.0 - 1.0);
+          vec3 chamber = texture(uLens, lensUV).rgb;
+          vec3 filmTint = jewel(fract(lensUV.x * 1.3 + lensUV.y * 1.7 + t * 0.02));
+          vec3 chamberToned = chamber * mix(vec3(1.0), filmTint * 2.2, uLensFilm);
+          color = mix(color, chamberToned + color * 0.12, uLensMix);
+
+          // Fine suspended specks in the chamber.
+          vec2 sp = source * 12.0 + vec2(.05*uTime, -.09*uTime);
+          vec2 sid = floor(sp);
+          vec2 sf = fract(sp) - .5;
+          float sn = hash21(sid + 44.0);
+          float sparkle = smoothstep(.105, .015, length(sf - vec2(sn-.5, fract(sn*5.7)-.5)*.38));
+          sparkle *= step(mix(.79, .70, uAudio.z), sn);
+          color += jewel(sn) * sparkle * (.52 + uAudio.z * .35) + vec3(1.0) * pow(sparkle, 5.0) * (.72 + uAudio.z * .42);
+
+          // Subtle dark mirror leading: seams are continuous, never bright.
+          float seamDistance = min(wrapped, sector - wrapped) * max(radius, .08);
+          float seam = 1.0 - smoothstep(.002, .010, seamDistance);
+          color *= 1.0 - seam * .30;
+
+          // A small luminous hub, as in a well-lit physical instrument.
+          float hub = exp(-radius * 28.0);
+          color += vec3(1.0, .83, .52) * hub * .92;
+
+          float vignette = smoothstep(1.72, .30, radius);
+          color *= mix(.48, 1.0, vignette);
+          color *= uGlow * (1.0 + uAudio.w * .24 + uAudio.z * .08);
+          color = 1.0 - exp(-color * 1.42);
+          color = pow(color, vec3(.92));
+
+          // Tiny final-stage dither to break dark gradient bands.
+          float d1 = hash21(gl_FragCoord.xy + fract(uTime) * 61.7);
+          float d2 = hash21(gl_FragCoord.yx + 91.3);
+          color += (d1 + d2 - 1.0) / 255.0;
+
+          outColor = vec4(color, 1.0);
+        }
+      `;
+
+      function setStatus(visible, message) {
+        if (message) status.querySelector('p').textContent = message;
+        status.classList.toggle('visible', visible);
+      }
+
+      function compile(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const message = gl.getShaderInfoLog(shader) || 'Shader compilation failed.';
+          gl.deleteShader(shader);
+          throw new Error(message);
+        }
+        return shader;
+      }
+
+      function initGL() {
+        gl = canvas.getContext('webgl2', {
+          alpha: false,
+          antialias: false,
+          depth: false,
+          stencil: false,
+          powerPreference: 'high-performance',
+          preserveDrawingBuffer: false
+        });
+        if (!gl) throw new Error('WebGL 2 unavailable');
+
+        const vertex = compile(gl.VERTEX_SHADER, vertexSource);
+        const fragment = compile(gl.FRAGMENT_SHADER, fragmentSource);
+        program = gl.createProgram();
+        gl.attachShader(program, vertex);
+        gl.attachShader(program, fragment);
+        gl.linkProgram(program);
+        gl.deleteShader(vertex);
+        gl.deleteShader(fragment);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+        vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+        const location = gl.getAttribLocation(program, 'aPosition');
+        gl.enableVertexAttribArray(location);
+        gl.vertexAttribPointer(location, 2, gl.FLOAT, false, 0, 0);
+        gl.bindVertexArray(null);
+
+        uniforms = {
+          resolution: gl.getUniformLocation(program, 'uResolution'),
+          time: gl.getUniformLocation(program, 'uTime'),
+          zoom: gl.getUniformLocation(program, 'uZoom'),
+          glow: gl.getUniformLocation(program, 'uGlow'),
+          styleWeights: gl.getUniformLocation(program, 'uStyleWeights'),
+          input: gl.getUniformLocation(program, 'uInput'),
+          audio: gl.getUniformLocation(program, 'uAudio'),
+          palette: gl.getUniformLocation(program, 'uPalette[0]'),
+          lens: gl.getUniformLocation(program, 'uLens'),
+          lensMix: gl.getUniformLocation(program, 'uLensMix'),
+          lensPan: gl.getUniformLocation(program, 'uLensPan'),
+          lensFilm: gl.getUniformLocation(program, 'uLensFilm'),
+          lensZoom: gl.getUniformLocation(program, 'uLensZoom'),
+          lensFlip: gl.getUniformLocation(program, 'uLensFlip')
+        };
+        // The chamber texture is always valid (1x1 black until a source
+        // arrives), so the lens sample in the shader never reads garbage.
+        lensTexture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, lensTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.activeTexture(gl.TEXTURE0);
+        setStatus(false);
+        resize();
+      }
+
+      function resize() {
+        if (!gl) return;
+        const bounds = canvas.getBoundingClientRect();
+        const maxDpr = Math.min(window.devicePixelRatio || 1, 2);
+        const pixelBudget = 4_000_000;
+        const budgetDpr = Math.sqrt(pixelBudget / Math.max(1, bounds.width * bounds.height));
+        const dpr = Math.min(maxDpr, budgetDpr);
+        const width = Math.max(1, Math.round(bounds.width * dpr));
+        const height = Math.max(1, Math.round(bounds.height * dpr));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          gl.viewport(0, 0, width, height);
+        }
+      }
+
+      function render(now) {
+        const delta = Math.min(.05, (now - lastFrame) / 1000);
+        lastFrame = now;
+        if (!paused) elapsed += delta * settings.speed * (1 + audioVisual.energy * .55);
+
+        const paletteEase = 1 - Math.exp(-delta * 4.8);
+        for (let index = 0; index < paletteCurrent.length; index += 1) {
+          paletteCurrent[index] += (paletteTarget[index] - paletteCurrent[index]) * paletteEase;
+        }
+        const styleEase = 1 - Math.exp(-delta * 5.2);
+        for (let index = 0; index < styleCurrent.length; index += 1) {
+          styleCurrent[index] += (styleTarget[index] - styleCurrent[index]) * styleEase;
+        }
+
+        if (!paused) updateAudioAnalysis();
+        composedInput.x = settledInput.x + (motionEnabled ? motionTarget.x : 0);
+        composedInput.y = settledInput.y + (motionEnabled ? motionTarget.y : 0);
+        const inputTarget = pointerActive ? dragTarget : composedInput;
+        const inputEase = 1 - Math.exp(-delta * (pointerActive ? 18 : 7));
+        displayInput.x += (inputTarget.x - displayInput.x) * inputEase;
+        displayInput.y += (inputTarget.y - displayInput.y) * inputEase;
+
+        resize();
+        gl.useProgram(program);
+        gl.bindVertexArray(vao);
+        gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+        gl.uniform1f(uniforms.time, elapsed);
+        gl.uniform1f(uniforms.zoom, settings.zoom);
+        gl.uniform1f(uniforms.glow, settings.glow);
+        gl.uniform3fv(uniforms.styleWeights, styleCurrent);
+        gl.uniform2f(uniforms.input, displayInput.x, displayInput.y);
+        gl.uniform4f(uniforms.audio, audioVisual.low, audioVisual.mid, audioVisual.high, audioVisual.energy);
+        gl.uniform3fv(uniforms.palette, paletteCurrent);
+        // Lens chamber: live video uploads whenever a fresh frame is ready;
+        // a chosen photo uploads once at selection time.
+        if (lensTexture && lensMode === 'camera' && lensVideo && lensVideo.readyState >= 2 && !lensVideo.paused) {
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, lensTexture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lensVideo);
+          gl.activeTexture(gl.TEXTURE0);
+        }
+        const lensEase = 1 - Math.exp(-delta * 5.2);
+        lensMixCur += (lensMixTarget - lensMixCur) * lensEase;
+        if (Math.abs(lensMixTarget - lensMixCur) < 0.002) lensMixCur = lensMixTarget;
+        // Tilt steers the sampled chamber (shared motion pipeline); touch
+        // drag pans it directly. Both ease like the design input.
+        const tiltPanX = (motionEnabled && !tiltSuspended) ? motionTarget.x * 0.55 : 0;
+        const tiltPanY = (motionEnabled && !tiltSuspended) ? motionTarget.y * 0.55 : 0;
+        const panEase = 1 - Math.exp(-delta * 9);
+        lensPanShown.x += ((lensPanTarget.x + tiltPanX) - lensPanShown.x) * panEase;
+        lensPanShown.y += ((lensPanTarget.y + tiltPanY) - lensPanShown.y) * panEase;
+        gl.uniform1i(uniforms.lens, 1);
+        gl.uniform1f(uniforms.lensMix, lensMixCur);
+        gl.uniform2f(uniforms.lensPan, lensPanShown.x, lensPanShown.y);
+        gl.uniform1f(uniforms.lensFilm, lensFilm);
+        gl.uniform1f(uniforms.lensZoom, lensZoom);
+        gl.uniform1f(uniforms.lensFlip, (lensFacing === 'user' && lensMode === 'camera') ? 1 : 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.bindVertexArray(null);
+        frameId = requestAnimationFrame(render);
+      }
+
+      function averageBand(data, sampleRate, fftSize, lowHz, highHz) {
+        const binHz = sampleRate / fftSize;
+        const start = clamp(Math.floor(lowHz / binHz), 0, data.length - 1);
+        const end = clamp(Math.ceil(highHz / binHz), start + 1, data.length);
+        let sum = 0;
+        for (let index = start; index < end; index += 1) sum += data[index];
+        return sum / Math.max(1, end - start) / 255;
+      }
+
+      function followAudio(key, value) {
+        const current = audioReactive[key];
+        const amount = value > current ? .34 : .075;
+        audioReactive[key] += (value - current) * amount;
+        audioVisual[key] += (audioReactive[key] - audioVisual[key]) * .28;
+      }
+
+      function updateAudioAnalysis() {
+        if (!analyser || !frequencyData || !audioContext) {
+          ['low', 'mid', 'high', 'energy'].forEach(key => followAudio(key, 0));
+          audioMeter.style.transform = 'scaleX(0)';
+          return;
+        }
+        analyser.getByteFrequencyData(frequencyData);
+        const rate = audioContext.sampleRate;
+        const low = averageBand(frequencyData, rate, analyser.fftSize, 20, 160);
+        const mid = averageBand(frequencyData, rate, analyser.fftSize, 160, 2000);
+        const high = averageBand(frequencyData, rate, analyser.fftSize, 2000, 8000);
+        const gated = value => value < .018 ? 0 : clamp((value - .018) / .48, 0, 1);
+        const nextLow = gated(low);
+        const nextMid = gated(mid);
+        const nextHigh = gated(high);
+        const energy = clamp(nextLow * .42 + nextMid * .4 + nextHigh * .18, 0, 1);
+        followAudio('low', nextLow);
+        followAudio('mid', nextMid);
+        followAudio('high', nextHigh);
+        followAudio('energy', energy);
+        audioMeter.style.transform = `scaleX(${clamp(audioVisual.energy * 1.55, 0, 1).toFixed(3)})`;
+      }
+
+      // Phase 2: one mic state drives BOTH the top-row toggle and the
+      // drawer-row toggle. No menu — a tap starts listening, a tap stops it.
+      function updateAudioUI(message) {
+        const active = Boolean(activeAudioSource);
+        for (const btn of [audioButton, micRow]) {
+          btn.setAttribute('aria-pressed', String(active));
+          btn.setAttribute('aria-label', active ? 'Turn microphone off' : 'Turn microphone on');
+        }
+        audioButton.classList.toggle('listening', active);
+        micRowSub.textContent = active ? 'Listening' : 'Off';
+        if (message) toast(message);
+      }
+
+      // Phase 2: transient feedback pill above the drawer and sheets.
+      let toastTimer = null;
+      function toast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1400);
+      }
+
+      function stopAudio(message = 'Audio reaction stopped.') {
+        if (audioStream) {
+          audioStream.getTracks().forEach(track => {
+            track.onended = null;
+            track.stop();
+          });
+        }
+        if (audioSourceNode) {
+          try { audioSourceNode.disconnect(); } catch (error) { /* already disconnected */ }
+        }
+        if (analyser) {
+          try { analyser.disconnect(); } catch (error) { /* already disconnected */ }
+        }
+        if (audioContext) audioContext.close().catch(() => {});
+        audioContext = null;
+        audioStream = null;
+        audioSourceNode = null;
+        analyser = null;
+        frequencyData = null;
+        activeAudioSource = null;
+        updateAudioUI(message);
+      }
+
+      // Microphone is the only audio source: tab/system capture is not
+      // offered because macOS cannot provide it reliably.
+      async function startAudio() {
+        if (activeAudioSource) {
+          stopAudio();
+          return;
+        }
+        if (!window.isSecureContext) {
+          updateAudioUI('Audio capture requires a secure browser connection.');
+          return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          updateAudioUI('Microphone capture is unavailable in this browser.');
+          return;
+        }
+
+        stopAudio('Requesting permission…');
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          updateAudioUI('Web Audio is unavailable in this browser.');
+          return;
+        }
+
+        try {
+          audioContext = new AudioContextClass();
+          if (audioContext.state === 'suspended') await audioContext.resume();
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+          });
+
+          audioStream = stream;
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 2048;
+          analyser.smoothingTimeConstant = .82;
+          frequencyData = new Uint8Array(analyser.frequencyBinCount);
+          audioSourceNode = audioContext.createMediaStreamSource(stream);
+          audioSourceNode.connect(analyser);
+          activeAudioSource = 'microphone';
+          stream.getTracks().forEach(track => {
+            track.onended = () => stopAudio('Microphone disconnected.');
+          });
+          updateAudioUI('Listening to the microphone.');
+        } catch (error) {
+          const denied = error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
+          stopAudio(denied
+            ? 'Microphone permission was not granted. You can try again whenever you are ready.'
+            : 'The microphone is unavailable here.');
+        }
+      }
+
+      // Phase 2: lens management lives in an L2 sheet reached from the
+      // drawer row (or the top-row lens button when a lens is already on).
+      // Phase 2.6 — Advanced is a drill-down layer that takes over the same
+      // panel in place (no separate overlay); the back button returns to the
+      // Lens root. Escape / scrim / x back out of the drilled layer, or close
+      // from the root.
+      const lensLayers = {
+        root: document.getElementById('lensSheetLayer'),
+        lensAdvancedLayer: document.getElementById('lensAdvancedLayer'),
+      };
+      const lensTitles = { root: 'lensSheetTitle', lensAdvancedLayer: 'lensAdvancedTitle' };
+      const lensCard = lensSheet.querySelector('.sheet-card');
+      const lensReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      let lensCurrent = 'root';
+      let lensReturnRow = null;
+      function showLensLayer(name, focusTarget) {
+        lensCurrent = name;
+        for (const key of Object.keys(lensLayers)) {
+          const layer = lensLayers[key];
+          const show = key === name;
+          if (layer.hidden === !show) continue;
+          layer.hidden = !show;
+          if (show && !lensReduceMotion.matches) {
+            layer.classList.remove('layer-enter');
+            void layer.offsetWidth;
+            layer.classList.add('layer-enter');
+          }
+        }
+        lensCard.setAttribute('aria-labelledby', lensTitles[name]);
+        const layer = lensLayers[name];
+        const target = focusTarget
+          || (name === 'root' ? (lensReturnRow || lensSheetClose)
+                              : layer.querySelector('[data-lens-back]'));
+        if (target) target.focus({ preventScroll: true });
+      }
+      function openLensSheet() {
+        KodaPalettes.lockScroll();
+        lensReturnRow = null;
+        lensSheet.hidden = false;
+        lensSheet.inert = false;
+        drawer.inert = true;
+        showLensLayer('root', lensSheetClose);
+      }
+      function closeLensSheet() {
+        KodaPalettes.unlockScroll();
+        lensSheet.hidden = true;
+        lensSheet.inert = true;
+        drawer.inert = false;
+        // Both openers (lens row, top-row lens button) close the drawer on
+        // open, so lensRow sits in an inert subtree here and .focus() on it
+        // would silently drop focus to <body>. Return to the drawer tab when
+        // the drawer is closed, otherwise to the invoking row.
+        const backTarget = drawer.classList.contains('open') ? lensRow : toolTab;
+        backTarget.focus({ preventScroll: true });
+      }
+      function dismissLensSheet() {
+        // Back out of the drilled Advanced layer; close from the root.
+        if (lensCurrent === 'root') closeLensSheet();
+        else showLensLayer('root');
+      }
+      document.querySelector('#lensSheet .sheet-scrim').addEventListener('click', dismissLensSheet);
+      lensSheetClose.addEventListener('click', dismissLensSheet);
+      lensSheet.querySelectorAll('[data-lens-layer]').forEach((row) => {
+        row.addEventListener('click', () => {
+          lensReturnRow = row;
+          showLensLayer(row.getAttribute('data-lens-layer'));
+        });
+      });
+      lensSheet.querySelectorAll('[data-lens-back]').forEach((btn) => {
+        btn.addEventListener('click', () => { showLensLayer('root'); });
+      });
+      lensRow.addEventListener('click', () => {
+        toggleDrawer(false);
+        openLensSheet();
+      });
+
+      function updateLensUI(message) {
+        const active = lensMode !== null;
+        lensButton.setAttribute('aria-pressed', String(active));
+        lensButton.classList.toggle('listening', active);
+        lensButton.setAttribute('aria-label', active ? 'Camera lens is on: open lens controls' : 'Start camera lens');
+        lensOffButton.hidden = lensMode === null;
+        lensRowSub.textContent = lensMode === null ? 'Off' : (lensMode === 'camera' ? 'Live camera' : 'Photo');
+        lensCameraButton.setAttribute('aria-pressed', String(lensMode === 'camera'));
+        lensCameraState.textContent = lensMode === 'camera' ? 'Stop' : 'Start';
+        lensFacingLabel.textContent = lensFacing === 'user' ? 'Front camera' : 'Rear camera';
+        if (message) lensStatus.textContent = message;
+      }
+
+      function hasCameraSupport() {
+        return window.isSecureContext && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+      }
+
+      // Reuse the shared tilt pipeline from the lens gesture: the page feeds on
+      // devicemotion, so DeviceMotionEvent.requestPermission() is the correct
+      // iOS permission call here (same path as enableMotion()).
+      async function ensureMotionForLens() {
+        if (motionEnabled || !('DeviceMotionEvent' in window)) return;
+        await enableMotion();
+      }
+
+      function stopLens(message = 'Camera lens off.') {
+        if (lensStream) {
+          lensStream.getTracks().forEach(track => {
+            track.onended = null;
+            track.stop();
+          });
+        }
+        if (lensVideo) {
+          lensVideo.pause();
+          lensVideo.srcObject = null;
+        }
+        lensStream = null;
+        lensMode = null;
+        lensMixTarget = 0;
+        updateLensUI(message);
+      }
+
+      async function beginLensCamera() {
+        if (!window.isSecureContext) {
+          updateLensUI('Camera access requires a secure (https) connection.');
+          return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          updateLensUI('Camera capture is unavailable in this browser.');
+          return;
+        }
+        stopLens('Requesting camera\u2026');
+        // Tilt steers the chamber: request motion permission in the same
+        // user gesture as the camera, reusing the shared tilt pipeline.
+        try { await ensureMotionForLens(); } catch (error) { /* tilt stays off; the lens still works */ }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: lensFacing,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+          if (!stream.getVideoTracks().length) {
+            stream.getTracks().forEach(track => track.stop());
+            throw new Error('NO_VIDEO_TRACK');
+          }
+          if (!lensVideo) {
+            lensVideo = document.createElement('video');
+            lensVideo.muted = true;
+            lensVideo.playsInline = true;
+            lensVideo.setAttribute('playsinline', '');
+          }
+          lensVideo.srcObject = stream;
+          await lensVideo.play();
+          lensStream = stream;
+          lensMode = 'camera';
+          lensMixTarget = 1;
+          stream.getVideoTracks().forEach(track => {
+            track.onended = () => stopLens('Camera was disconnected.');
+          });
+          updateLensUI(lensFacing === 'user' ? 'Live camera \u00b7 front.' : 'Live camera \u00b7 rear.');
+        } catch (error) {
+          const denied = error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
+          const noTrack = error && error.message === 'NO_VIDEO_TRACK';
+          stopLens(denied
+            ? 'Camera permission was not granted. A photo works with no permission.'
+            : noTrack
+              ? 'No camera was found on this device.'
+              : 'The camera is unavailable here.');
+        }
+      }
+
+      async function startLensCamera() {
+        if (lensMode === 'camera') {
+          stopLens();
+          return;
+        }
+        await beginLensCamera();
+      }
+
+      async function flipLensCamera() {
+        lensFacing = lensFacing === 'user' ? 'environment' : 'user';
+        if (lensMode === 'camera') {
+          if (lensStream) {
+            lensStream.getTracks().forEach(track => track.stop());
+            lensStream = null;
+          }
+          if (lensVideo) {
+            lensVideo.pause();
+            lensVideo.srcObject = null;
+          }
+          lensMode = null;
+          lensMixTarget = 0;
+          await beginLensCamera();
+        } else {
+          updateLensUI();
+        }
+      }
+
+      async function useLensPhoto(file) {
+        if (!file) return;
+        stopLens('Loading photo\u2026');
+        try {
+          let bitmap = await createImageBitmap(file);
+          const maxSide = 1280;
+          const downscale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+          if (downscale < 1) {
+            const cnv = document.createElement('canvas');
+            cnv.width = Math.max(1, Math.round(bitmap.width * downscale));
+            cnv.height = Math.max(1, Math.round(bitmap.height * downscale));
+            cnv.getContext('2d').drawImage(bitmap, 0, 0, cnv.width, cnv.height);
+            if (bitmap.close) bitmap.close();
+            bitmap = await createImageBitmap(cnv);
+          }
+          if (!lensTexture || !gl) throw new Error('NO_GL');
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, lensTexture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+          gl.activeTexture(gl.TEXTURE0);
+          if (bitmap.close) bitmap.close();
+          lensMode = 'photo';
+          lensMixTarget = 1;
+          updateLensUI('Photo chamber \u00b7 ' + (file.name || 'image') + '.');
+        } catch (error) {
+          stopLens('That photo could not be used. Try another image.');
+        }
+      }
+
+      function setPaused(next) {
+        paused = next;
+        pauseButton.setAttribute('aria-pressed', String(paused));
+        pauseButton.setAttribute('aria-label', paused ? 'Play animation' : 'Pause animation');
+      }
+
+      function toggleDrawer(force) {
+        const open = typeof force === 'boolean' ? force : !drawer.classList.contains('open');
+        drawer.classList.toggle('open', open);
+        drawerControls.inert = !open;
+        drawerControls.setAttribute('aria-hidden', String(!open));
+        drawerControls.querySelectorAll('button, input').forEach(control => { control.tabIndex = open ? 0 : -1; });
+        toolTab.setAttribute('aria-expanded', String(open));
+        toolTab.setAttribute('aria-label', open ? 'Close controls' : 'Open controls');
+        // Phase 2.5 — the scrim is a redundant drawer close path (tap the
+        // artwork): toggle, scrim, swipe-down, Escape.
+        drawerScrim.classList.toggle('show', open);
+      }
+
+      function updateControl(input) {
+        const key = input.dataset.setting;
+        settings[key] = Number(input.value);
+        store.set(key, settings[key]);
+        document.getElementById(input.id + 'Value').textContent = Number(input.value).toFixed(2) + '×';
+      }
+
+      function setPalette(id) {
+        const entry = paletteEntry(id);
+        if (!entry) return;
+        settings.palette = id;
+        store.set('palette', id);
+        if (id === WORKING_ID) {
+          store.set('customColors', entry.colors.slice());
+          store.set('customName', entry.name);
+        }
+        paletteTarget = paletteFloats(id);
+        paletteName.textContent = entry.name;
+        document.querySelectorAll('[data-palette]').forEach(button => {
+          button.setAttribute('aria-pressed', String(button.dataset.palette === id));
+        });
+      }
+
+      // ---- Palette sheet: layered customization overlay ----
+      // Layer 1 = library (built-ins + saved + New). Layer 2 = editor.
+      // Cancel / back discards the working copy and restores the snapshot
+      // taken when the sheet opened; Save applies + persists and closes.
+      const paletteSheet = document.getElementById('paletteSheet');
+      const sheetLayerList = document.getElementById('sheetLayerList');
+      const sheetLayerEdit = document.getElementById('sheetLayerEdit');
+      const sheetGrid = document.getElementById('sheetGrid');
+      const sheetClose = document.getElementById('sheetClose');
+      const sheetBack = document.getElementById('sheetBack');
+      const customToggle = () => document.getElementById('customToggle');
+      const customBase = document.getElementById('customBase');
+      const customPreview = document.getElementById('customPreview');
+      const customNameInput = document.getElementById('customName');
+      const customSaveButton = document.getElementById('customSave');
+      const customCancelButton = document.getElementById('customCancel');
+      let sheetSnapshot = null;
+
+      function snapshotSheetState() {
+        sheetSnapshot = {
+          palette: settings.palette,
+          working: workingPalette
+            ? { id: WORKING_ID, name: workingPalette.name, colors: workingPalette.colors.slice() }
+            : null,
+          customColors: store.get('customColors'),
+          customName: store.get('customName')
+        };
+      }
+
+      function restoreSheetState() {
+        if (!sheetSnapshot) return;
+        workingPalette = sheetSnapshot.working;
+        store.set('customColors', sheetSnapshot.customColors);
+        store.set('customName', sheetSnapshot.customName);
+        customNameInput.value = '';
+        setPalette(sheetSnapshot.palette);
+        sheetSnapshot = null;
+      }
+
+      function showSheetLayer(which) {
+        sheetLayerList.hidden = which !== 'list';
+        sheetLayerEdit.hidden = which !== 'edit';
+      }
+
+      function openPaletteSheet() {
+        snapshotSheetState();
+        KodaPalettes.lockScroll();
+        renderSheetGrid();
+        showSheetLayer('list');
+        paletteSheet.hidden = false;
+        paletteSheet.inert = false;
+        drawer.inert = true;
+        sheetClose.focus({ preventScroll: true });
+      }
+
+      function closePaletteSheet() {
+        KodaPalettes.dismissDeletePrompt();
+        KodaPalettes.unlockScroll();
+        restoreSheetState();
+        paletteSheet.hidden = true;
+        paletteSheet.inert = true;
+        drawer.inert = false;
+        const toggle = customToggle();
+        if (toggle) toggle.focus({ preventScroll: true });
+      }
+
+      function openEditor() {
+        showSheetLayer('edit');
+        if (!workingPalette) applySuggestion(lastHarmonyKind || 'triadic');
+        else renderWorkingPreview();
+      }
+
+      function discardToLibrary() {
+        restoreSheetState();
+        renderSheetGrid();
+        showSheetLayer('list');
+      }
+
+      function renderSheetGrid() {
+        KodaPalettes.dismissDeletePrompt();
+        sheetGrid.innerHTML = '';
+        for (const entry of paletteLib.list()) {
+          const tile = document.createElement('div');
+          tile.className = 'sheet-tile';
+          const swatch = document.createElement('button');
+          swatch.type = 'button';
+          swatch.className = 'sheet-swatch';
+          swatch.dataset.palette = entry.id;
+          swatch.setAttribute('aria-label', entry.name + ' palette');
+          swatch.setAttribute('aria-pressed', String(settings.palette === entry.id));
+          swatch.style.setProperty('--palette', KodaPalettes.swatchCSS(entry.colors));
+          let holdCtl = null;
+          swatch.addEventListener('click', (event) => {
+            if (holdCtl && holdCtl.suppressIfHeld(event)) return; // hold fired: no tap-apply
+            KodaPalettes.dismissDeletePrompt();
+            sheetSnapshot = null; // selecting is an explicit accept
+            setPalette(entry.id);
+            KodaPalettes.unlockScroll();
+            paletteSheet.hidden = true;
+            paletteSheet.inert = true;
+            drawer.inert = false;
+          });
+          const name = document.createElement('span');
+          name.className = 'sheet-tile-name';
+          name.textContent = entry.name;
+          tile.append(swatch, name);
+          if (!entry.builtin) {
+            // Hold-to-delete is the single delete path (touch + mouse).
+            tile.title = 'Touch and hold to delete ' + entry.name;
+            swatch.setAttribute('aria-label', entry.name + ' palette. Touch and hold to delete.');
+            holdCtl = KodaPalettes.onHold(tile, () => {
+              KodaPalettes.confirmDelete(tile, entry.name, {
+                onDelete: () => {
+                  const wasActive = settings.palette === entry.id;
+                  paletteLib.removeUser(entry.id);
+                  if (wasActive) setPalette(defaults.palette);
+                  renderSheetGrid();
+                  renderPaletteOptions();
+                }
+              });
+            });
+          }
+          sheetGrid.appendChild(tile);
+        }
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'sheet-tile sheet-new';
+        add.setAttribute('aria-label', 'Build a new custom palette');
+        const plus = document.createElement('span');
+        plus.className = 'sheet-new-plus';
+        plus.setAttribute('aria-hidden', 'true');
+        plus.textContent = '+';
+        const label = document.createElement('span');
+        label.className = 'sheet-tile-name';
+        label.textContent = 'New palette';
+        add.append(plus, label);
+        add.addEventListener('click', openEditor);
+        sheetGrid.appendChild(add);
+      }
+
+      function renderPaletteOptions() {
+        const container = document.getElementById('paletteOptions');
+        container.innerHTML = '';
+        for (const entry of paletteLib.list()) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'palette-option';
+          button.dataset.palette = entry.id;
+          button.setAttribute('aria-label', entry.name + ' palette');
+          button.setAttribute('aria-pressed', String(settings.palette === entry.id));
+          button.style.setProperty('--palette', KodaPalettes.swatchCSS(entry.colors));
+          button.addEventListener('click', () => setPalette(entry.id));
+          container.appendChild(button);
+        }
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.id = 'customToggle';
+        add.className = 'palette-option custom-add';
+        add.setAttribute('aria-label', 'Open palette library');
+        const plus = document.createElement('span');
+        plus.setAttribute('aria-hidden', 'true');
+        plus.textContent = '+';
+        add.appendChild(plus);
+        add.addEventListener('click', openPaletteSheet);
+        container.appendChild(add);
+      }
+
+      function renderWorkingPreview() {
+        customPreview.innerHTML = '';
+        if (!workingPalette) return;
+        for (const hex of workingPalette.colors) {
+          const cell = document.createElement('span');
+          cell.style.background = hex;
+          cell.title = hex;
+          customPreview.appendChild(cell);
+        }
+      }
+
+      let lastHarmonyKind = null;
+      function applySuggestion(kind) {
+        lastHarmonyKind = kind;
+        let set;
+        if (kind === 'surprise') {
+          set = KodaPalettes.harmony.surprise();
+          customBase.value = set.baseHex;
+        } else {
+          set = KodaPalettes.harmony.makePaletteSet(customBase.value.toUpperCase(), kind);
+        }
+        workingPalette = { id: WORKING_ID, name: set.name, colors: set.colors };
+        renderWorkingPreview();
+        setPalette(WORKING_ID);
+      }
+
+      function setStyle(id) {
+        if (!styles[id]) return;
+        settings.style = id;
+        store.set('style', id);
+        styleTarget.set(styles[id].weights);
+        modeName.textContent = styles[id].name;
+        prismMark.dataset.style = id;
+        document.querySelectorAll('.preset-option').forEach(button => {
+          button.setAttribute('aria-pressed', String(button.dataset.style === id));
+        });
+      }
+
+      function setMotionLabel(text, pressed, disabled = false) {
+        const label = motionButton.querySelector('.motion-label');
+        if (label) label.textContent = text; else motionButton.textContent = text;
+        motionButton.setAttribute('aria-label', 'Tilt control: ' + text.toLowerCase().replace(/…$/, ''));
+        motionButton.disabled = disabled;
+        motionButton.setAttribute('aria-pressed', String(pressed));
+        // The main-view FAB mirrors the same shared tilt state.
+        tiltFab.disabled = disabled;
+        tiltFab.setAttribute('aria-pressed', String(pressed));
+        tiltFab.setAttribute('aria-label', pressed ? 'Turn tilt control off' : 'Turn tilt control on');
+      }
+
+      function mappedAcceleration(acceleration) {
+        const angle = screen.orientation && typeof screen.orientation.angle === 'number'
+          ? screen.orientation.angle
+          : (typeof window.orientation === 'number' ? window.orientation : 0);
+        const x = acceleration.x || 0;
+        const y = acceleration.y || 0;
+        if (angle === 90 || angle === -270) return { x: y, y: -x };
+        if (angle === 270 || angle === -90) return { x: -y, y: x };
+        if (Math.abs(angle) === 180) return { x: -x, y: -y };
+        return { x, y };
+      }
+
+      function handleMotion(event) {
+        if (!motionEnabled || tiltSuspended || !event.accelerationIncludingGravity) return;
+        const mapped = mappedAcceleration(event.accelerationIncludingGravity);
+        if (!motionBaseline) {
+          motionBaseline = mapped;
+          return;
+        }
+        const nextX = clamp((mapped.x - motionBaseline.x) / 6.5, -1, 1);
+        const nextY = clamp((mapped.y - motionBaseline.y) / 6.5, -1, 1);
+        motionTarget.x += (nextX - motionTarget.x) * .18;
+        motionTarget.y += (-nextY - motionTarget.y) * .18;
+        if (!motionReceived) {
+          motionReceived = true;
+          setMotionLabel('Tilt active', true);
+        }
+      }
+
+      function addMotionListener() {
+        if (motionListening) return;
+        window.addEventListener('devicemotion', handleMotion, { passive: true });
+        motionListening = true;
+      }
+
+      function disableMotion() {
+        motionEnabled = false;
+        motionTarget.x = 0;
+        motionTarget.y = 0;
+        setMotionLabel('Enable tilt', false);
+      }
+
+      // iOS Safari gates motion behind a user permission prompt: the sensor
+      // exists but stays silent until the user grants access, so the probe
+      // below can't distinguish "no sensor" from "not yet granted" there.
+      // Only real iOS takes the tap-to-enable path; other platforms with a
+      // requestPermission API (newer desktop Chrome) still get probed.
+      function motionNeedsPermissionGrant() {
+        if (typeof DeviceOrientationEvent === 'undefined' ||
+            typeof DeviceOrientationEvent.requestPermission !== 'function') return false;
+        const ua = navigator.userAgent || '';
+        if (/iPhone|iPad|iPod/.test(ua)) return true;
+        // iPadOS in desktop mode reports a Mac UA with touch points.
+        return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+      }
+
+      // Probe for a real motion sensor: some desktop browsers expose the motion
+      // APIs but never deliver readings (no gyroscope). A single
+      // deviceorientation event with non-null beta/gamma proves the sensor.
+      function probeTiltAvailability() {
+        return new Promise(resolve => {
+          if (typeof DeviceOrientationEvent === 'undefined') {
+            resolve(false);
+            return;
+          }
+          let settled = false;
+          const timer = setTimeout(() => done(false), 1500);
+          function done(available) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            window.removeEventListener('deviceorientation', onOrientation);
+            resolve(available);
+          }
+          function onOrientation(event) {
+            if (event && event.beta != null && event.gamma != null) done(true);
+          }
+          window.addEventListener('deviceorientation', onOrientation, { passive: true });
+        });
+      }
+
+      async function enableMotion() {
+        // Probed unavailable: tilt stays off, no UI. A sensorless device must
+        // never offer tilt, even if something calls enableMotion() later.
+        if (tiltAvailable === false) return;
+        if (!('DeviceMotionEvent' in window)) {
+          setMotionLabel('Tilt unavailable', false, true);
+          return;
+        }
+        try {
+          if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            const permission = await DeviceMotionEvent.requestPermission();
+            if (permission !== 'granted') {
+              setMotionLabel('Tilt denied', false);
+              return;
+            }
+          }
+          motionBaseline = null;
+          motionReceived = false;
+          motionEnabled = true;
+          addMotionListener();
+          setMotionLabel('Tilt ready', true);
+        } catch (error) {
+          console.warn('Device motion could not be enabled.', error);
+          setMotionLabel('Tilt unavailable', false, true);
+        }
+      }
+
+      function beginPointer(event) {
+        if (!event.isPrimary) return;
+        // Suspend tilt influence for the touch duration — the design holds
+        // where it is. The enabled state persists; it resumes on release.
+        if (motionEnabled) tiltSuspended = true;
+        settledInput.x = displayInput.x;
+        settledInput.y = displayInput.y;
+        pointerActive = true;
+        pointerId = event.pointerId;
+        pointerStart.x = event.clientX;
+        pointerStart.y = event.clientY;
+        pointerOrigin.x = settledInput.x;
+        pointerOrigin.y = settledInput.y;
+        lensDragOrigin.x = lensPanTarget.x;
+        lensDragOrigin.y = lensPanTarget.y;
+        dragTarget.x = settledInput.x;
+        dragTarget.y = settledInput.y;
+        canvas.classList.add('dragging');
+        canvas.setPointerCapture(event.pointerId);
+      }
+
+      function movePointer(event) {
+        if (!pointerActive || event.pointerId !== pointerId) return;
+        const scale = Math.max(1, Math.min(canvas.clientWidth, canvas.clientHeight));
+        dragTarget.x = pointerOrigin.x + (event.clientX - pointerStart.x) / scale * 1.7;
+        dragTarget.y = pointerOrigin.y - (event.clientY - pointerStart.y) / scale * 1.7;
+        if (lensMode !== null) {
+          lensPanTarget.x = lensDragOrigin.x + (event.clientX - pointerStart.x) / scale * 0.9;
+          lensPanTarget.y = lensDragOrigin.y - (event.clientY - pointerStart.y) / scale * 0.9;
+        }
+        if (paused) {
+          displayInput.x = dragTarget.x;
+          displayInput.y = dragTarget.y;
+        }
+      }
+
+      function endPointer(event) {
+        if (!pointerActive || event.pointerId !== pointerId) return;
+        settledInput.x = dragTarget.x;
+        settledInput.y = dragTarget.y;
+        displayInput.x = settledInput.x;
+        displayInput.y = settledInput.y;
+        pointerActive = false;
+        pointerId = null;
+        canvas.classList.remove('dragging');
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        // Re-baseline on release so tilt resumes from the current device
+        // attitude instead of snapping.
+        if (tiltSuspended) {
+          tiltSuspended = false;
+          motionBaseline = null;
+        }
+      }
+
+      pauseButton.addEventListener('click', () => setPaused(!paused));
+      audioButton.addEventListener('click', () => {
+        startAudio();
+      });
+      micRow.addEventListener('click', () => {
+        startAudio();
+      });
+      lensButton.addEventListener('click', () => {
+        if (!lensSheet.hidden) { closeLensSheet(); return; }
+        // Head-up toggle: when the lens is off this tap IS the camera/motion
+        // permission gesture, so it starts the rear camera directly. When the
+        // lens is on, the tap opens the lens sheet (flip, photo, advanced,
+        // turn lens off) instead of killing the session by accident.
+        if (lensMode === null) {
+          toggleDrawer(false);
+          if (hasCameraSupport()) {
+            startLensCamera();
+          } else {
+            openLensSheet();
+            updateLensUI('Camera unavailable here — use a photo instead.');
+          }
+          return;
+        }
+        toggleDrawer(false);
+        openLensSheet();
+      });
+      lensOffButton.addEventListener('click', () => {
+        stopLens();
+        closeLensSheet();
+      });
+      lensCameraButton.addEventListener('click', () => startLensCamera());
+      lensFlipButton.addEventListener('click', () => flipLensCamera());
+      lensPhotoInput.addEventListener('change', () => {
+        useLensPhoto(lensPhotoInput.files && lensPhotoInput.files[0]);
+        lensPhotoInput.value = '';
+      });
+      lensRecenterButton.addEventListener('click', () => {
+        lensPanTarget.x = 0;
+        lensPanTarget.y = 0;
+        updateLensUI('View recentered.');
+      });
+      document.querySelectorAll('[data-lens]').forEach(input => {
+        input.addEventListener('input', () => {
+          if (input.dataset.lens === 'film') {
+            lensFilm = Number(input.value);
+            store.set('lensFilm', lensFilm);
+            lensFilmValue.textContent = lensFilm.toFixed(2);
+          } else {
+            lensZoom = Number(input.value);
+            store.set('lensZoom', lensZoom);
+            lensZoomValue.textContent = lensZoom.toFixed(2) + '\u00d7';
+          }
+        });
+      });
+      toolTab.addEventListener('click', () => {
+        toggleDrawer();
+      });
+      drawerScrim.addEventListener('click', () => {
+        toggleDrawer(false);
+      });
+      // Phase 2.5 — overlaying browser chrome (in-app browsers): measure how
+      // much of the layout viewport the visual viewport occludes at the
+      // bottom/top and lift the drawer / drop the topbar by that amount, so
+      // the hide tab and the drawer heading stay reachable and clear.
+      // Exposed as window.__syncChromeOffset for the headless harness
+      // (visualViewport can't be resized under file://).
+      function syncChromeOffset(vv) {
+        const v = vv || window.visualViewport;
+        let bottom = 0, top = 0;
+        if (v) {
+          bottom = Math.max(0, window.innerHeight - v.height - v.offsetTop);
+          top = Math.max(0, v.offsetTop);
+        }
+        const root = document.documentElement.style;
+        root.setProperty('--vv-bottom', Math.round(bottom) + 'px');
+        root.setProperty('--vv-top', Math.round(top) + 'px');
+      }
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => syncChromeOffset());
+        window.visualViewport.addEventListener('scroll', () => syncChromeOffset());
+      }
+      window.addEventListener('resize', () => syncChromeOffset());
+      window.__syncChromeOffset = syncChromeOffset;
+      syncChromeOffset();
+      // The fixed site header's rendered height varies with device font metrics
+      // (the old hardcoded 60px left top-row control circles sliding under it
+      // on iPhone, their tops cut flat). Measure it so .stage starts exactly
+      // below the header. Exposed for the headless harness.
+      function syncHeaderHeight() {
+        const h = document.querySelector('.site-header');
+        if (h) document.documentElement.style.setProperty('--site-head-h',
+          Math.ceil(h.getBoundingClientRect().height) + 'px');
+      }
+      window.addEventListener('resize', syncHeaderHeight);
+      window.addEventListener('orientationchange', syncHeaderHeight);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderHeight);
+      window.__syncHeaderHeight = syncHeaderHeight;
+      syncHeaderHeight();
+      // Phase 2.5 — swipe down on the drawer dismisses it: a redundant close
+      // path alongside the tab, stage tap, and Escape. Only fires when the
+      // drawer's own scroll region is at the top, so content scrolling never
+      // triggers a close.
+      let drawerSwipeY = null;
+      drawer.addEventListener('touchstart', (event) => {
+        if (event.touches.length === 1) drawerSwipeY = event.touches[0].clientY;
+      }, { passive: true });
+      drawer.addEventListener('touchend', (event) => {
+        if (drawerSwipeY === null) return;
+        const dy = event.changedTouches[0].clientY - drawerSwipeY;
+        drawerSwipeY = null;
+        if (dy > 64 && drawerControls.scrollTop <= 0 && drawer.classList.contains('open')) {
+          toggleDrawer(false);
+        }
+      }, { passive: true });
+      motionButton.addEventListener('click', () => {
+        if (motionEnabled) disableMotion();
+        else enableMotion();
+      });
+      // Main-view tilt toggle: same shared state as the drawer's toggle.
+      tiltFab.addEventListener('click', () => {
+        if (motionEnabled) disableMotion();
+        else enableMotion();
+      });
+      canvas.addEventListener('pointerdown', beginPointer);
+      canvas.addEventListener('pointermove', movePointer);
+      canvas.addEventListener('pointerup', endPointer);
+      canvas.addEventListener('pointercancel', endPointer);
+      canvas.addEventListener('lostpointercapture', event => {
+        if (pointerActive && event.pointerId === pointerId) endPointer(event);
+      });
+      stage.addEventListener('pointerdown', (event) => {
+        // Tapping anywhere on the stage (drawer tab, empty space) must never
+        // change the tilt enabled state — a touch only suspends tilt
+        // influence while it lasts (handled in beginPointer/endPointer).
+        if (!paletteSheet.hidden) {
+          if (!paletteSheet.contains(event.target)) closePaletteSheet();
+        } else if (drawer.classList.contains('open') && !drawer.contains(event.target)) {
+          toggleDrawer(false);
+        }
+        if (!lensSheet.hidden && !lensSheet.contains(event.target) && !lensButton.contains(event.target) && !lensRow.contains(event.target)) closeLensSheet();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          if (!paletteSheet.hidden) dismissPaletteSheet();
+          else if (!lensSheet.hidden) dismissLensSheet();
+          else toggleDrawer(false);
+        }
+        if (event.code === 'Space' && event.target === document.body) {
+          event.preventDefault();
+          setPaused(!paused);
+        }
+      });
+      // Phase 1 — one sheet close grammar: scrim-tap behaves exactly like
+      // Escape (back out of the edit layer, or close the sheet).
+      function dismissPaletteSheet(){
+        if (!sheetLayerEdit.hidden) discardToLibrary();
+        else closePaletteSheet();
+      }
+      document.querySelector('#paletteSheet .sheet-scrim').addEventListener('click', dismissPaletteSheet);
+
+      document.querySelectorAll('[data-setting]').forEach(input => {
+        input.addEventListener('input', () => updateControl(input));
+      });
+      document.querySelectorAll('.harmony-chip').forEach(chip => {
+        chip.addEventListener('click', () => applySuggestion(chip.dataset.harmony));
+      });
+      customBase.addEventListener('input', () => {
+        // Live-regenerate while a suggestion is showing.
+        if (lastHarmonyKind && customPreview.childElementCount > 0) applySuggestion(lastHarmonyKind);
+      });
+      customSaveButton.addEventListener('click', () => {
+        if (!workingPalette) applySuggestion('triadic');
+        const id = paletteLib.addUser({
+          name: customNameInput.value.trim() || workingPalette.name,
+          colors: workingPalette.colors
+        });
+        customNameInput.value = '';
+        workingPalette = null;
+        lastHarmonyKind = null;
+        sheetSnapshot = null; // Save is an explicit accept — nothing to restore
+        renderPaletteOptions();
+        setPalette(id);
+        KodaPalettes.dismissDeletePrompt();
+        KodaPalettes.unlockScroll();
+        paletteSheet.hidden = true;
+        paletteSheet.inert = true;
+        drawer.inert = false;
+      });
+      customCancelButton.addEventListener('click', discardToLibrary);
+      sheetBack.addEventListener('click', discardToLibrary);
+      sheetClose.addEventListener('click', closePaletteSheet);
+      document.querySelectorAll('.preset-option').forEach(button => {
+        button.addEventListener('click', () => setStyle(button.dataset.style));
+      });
+
+      // Phase 2: one Reset button, scoped by an L3 hold-to-confirm
+      // prompt. View = pan/zoom only; appearance = palette/style only;
+      // everything = all settings.
+      function resetViewScope(announce) {
+        dragTarget.x = 0;
+        dragTarget.y = 0;
+        settledInput.x = 0;
+        settledInput.y = 0;
+        displayInput.x = 0;
+        displayInput.y = 0;
+        motionTarget.x = 0;
+        motionTarget.y = 0;
+        motionBaseline = null;
+        lensPanTarget.x = 0;
+        lensPanTarget.y = 0;
+        lensZoom = 1.0;
+        lensZoomInput.value = '1';
+        lensZoomValue.textContent = '1.00\u00d7';
+        const focusInput = document.querySelector('[data-setting="zoom"]');
+        if (focusInput) { focusInput.value = String(defaults.zoom); updateControl(focusInput); }
+        toggleDrawer(false);
+        if (announce !== false) toast('View reset');
+      }
+
+      function resetAppearanceScope(announce) {
+        Object.assign(settings, { style: defaults.style, palette: defaults.palette });
+        settings.customColors = null;
+        settings.customName = '';
+        workingPalette = null;
+        lastHarmonyKind = null;
+        store.setAll({ style: defaults.style, palette: defaults.palette, customColors: null, customName: '' });
+        customNameInput.value = '';
+        customPreview.innerHTML = '';
+        document.querySelectorAll('[data-setting]').forEach(input => {
+          const key = input.dataset.setting;
+          if (key === 'zoom') return; // focus/zoom is View scope, not appearance
+          input.value = String(defaults[key]);
+          updateControl(input);
+        });
+        lensFilm = 0.45;
+        lensFilmInput.value = '0.45';
+        lensFilmValue.textContent = '0.45';
+        setPalette(defaults.palette);
+        setStyle(defaults.style);
+        if (announce !== false) toast('Appearance reset');
+      }
+
+      function resetEverythingScope() {
+        sheetSnapshot = null;
+        if (!paletteSheet.hidden) {
+          paletteSheet.hidden = true;
+          paletteSheet.inert = true;
+          drawer.inert = false;
+        }
+        if (!lensSheet.hidden) closeLensSheet();
+        store.reset();
+        Object.assign(settings, defaults);
+        resetAppearanceScope(false);
+        resetViewScope(false);
+        toast('Everything reset');
+      }
+
+      function openScopePrompt(anchorBtn) {
+        closeScopePrompt();
+        const prompt = document.createElement('div');
+        prompt.className = 'scope-prompt';
+        prompt.id = 'scopePrompt';
+        prompt.setAttribute('role', 'alertdialog');
+        prompt.setAttribute('aria-label', 'Choose reset scope');
+        prompt.innerHTML =
+          '<p class="scope-title">Reset</p>' +
+          '<p class="scope-hint">Touch and hold a scope to reset it.</p>' +
+          '<div class="scope-options">' +
+          '<button type="button" class="scope-option" data-scope="view"><strong>View</strong><small>Pan &amp; zoom</small></button>' +
+          '<button type="button" class="scope-option" data-scope="appearance"><strong>Appearance</strong><small>Style &amp; palette</small></button>' +
+          '<button type="button" class="scope-option" data-scope="everything"><strong>Everything</strong><small>View + appearance</small></button>' +
+          '</div>' +
+          '<button type="button" class="scope-cancel">Cancel</button>';
+        document.body.appendChild(prompt);
+        const r = anchorBtn.getBoundingClientRect();
+        const w = prompt.offsetWidth;
+        prompt.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+        prompt.style.bottom = Math.max(8, window.innerHeight - r.top + 8) + 'px';
+        const onDocDown = event => {
+          if (prompt.contains(event.target)) return;
+          event.stopPropagation();
+          closeScopePrompt();
+        };
+        const onKey = event => {
+          if (event.key === 'Escape') { event.stopPropagation(); closeScopePrompt(); }
+        };
+        document.addEventListener('pointerdown', onDocDown, true);
+        document.addEventListener('keydown', onKey, true);
+        prompt._cleanup = () => {
+          document.removeEventListener('pointerdown', onDocDown, true);
+          document.removeEventListener('keydown', onKey, true);
+        };
+        for (const btn of prompt.querySelectorAll('.scope-option')) {
+          KodaPalettes.onHold(btn, () => {
+            const scope = btn.dataset.scope;
+            if (scope === 'view') resetViewScope();
+            else if (scope === 'appearance') resetAppearanceScope();
+            else resetEverythingScope();
+            closeScopePrompt();
+          }, { holdMs: 500 });
+        }
+        prompt.querySelector('.scope-cancel').addEventListener('click', closeScopePrompt);
+      }
+      function closeScopePrompt() {
+        const prompt = document.getElementById('scopePrompt');
+        if (!prompt) return;
+        if (prompt._cleanup) prompt._cleanup();
+        prompt.remove();
+      }
+
+      resetButton.addEventListener('click', () => {
+        toggleDrawer(false);
+        openScopePrompt(resetButton);
+      });
+
+
+      canvas.addEventListener('webglcontextlost', event => {
+        event.preventDefault();
+        cancelAnimationFrame(frameId);
+        setStatus(true, 'The graphics context paused. Restoring the kaleidoscope…');
+      });
+      canvas.addEventListener('webglcontextrestored', () => {
+        try { initGL(); frameId = requestAnimationFrame(render); }
+        catch (error) { setStatus(true); }
+      });
+      window.addEventListener('resize', resize, { passive: true });
+      window.addEventListener('orientationchange', () => { motionBaseline = null; }, { passive: true });
+      window.addEventListener('pagehide', () => { store.flush(); stopAudio('Audio reaction stopped.'); stopLens('Camera lens stopped.'); });
+
+      updateAudioUI();
+      updateLensUI();
+      setPaused(paused);
+      renderPaletteOptions();
+      // Restore persisted settings (the store validated them on load).
+      document.querySelectorAll('[data-setting]').forEach(input => {
+        const value = settings[input.dataset.setting];
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          input.value = String(value);
+          updateControl(input);
+        }
+      });
+      lensFilm = typeof settings.lensFilm === 'number' ? settings.lensFilm : 0.45;
+      lensZoom = typeof settings.lensZoom === 'number' ? settings.lensZoom : 1.0;
+      lensFilmInput.value = String(lensFilm);
+      lensFilmValue.textContent = lensFilm.toFixed(2);
+      lensZoomInput.value = String(lensZoom);
+      lensZoomValue.textContent = lensZoom.toFixed(2) + '\u00d7';
+      let initialPalette = settings.palette;
+      if (initialPalette === WORKING_ID) {
+        const saved = store.get('customColors');
+        const savedName = store.get('customName');
+        if (Array.isArray(saved) && saved.length === 7 && saved.every(KodaPalettes.color.isHexColor)) {
+          workingPalette = {
+            id: WORKING_ID,
+            name: (typeof savedName === 'string' && savedName) || 'Custom',
+            colors: saved.map(hex => hex.toUpperCase())
+          };
+        } else {
+          initialPalette = defaults.palette;
+        }
+      } else if (typeof initialPalette !== 'string' || !paletteLib.has(initialPalette)) {
+        initialPalette = defaults.palette;
+      }
+      toggleDrawer(false);
+      setPalette(initialPalette);
+      setStyle(styles[settings.style] ? settings.style : defaults.style);
+      // Tilt availability (Ben's rule: never display controls for features the
+      // device can't provide). iOS Safari keeps its tap-to-enable toggle; the
+      // sensor stays silent there until the user grants permission, so the
+      // probe can't apply. Everywhere else the deviceorientation probe must
+      // see real sensor data — otherwise tilt is forced off and both tilt
+      // controls are hidden outright.
+      if (motionNeedsPermissionGrant()) {
+        setMotionLabel('Enable tilt', false);
+      } else {
+        probeTiltAvailability().then(available => {
+          tiltAvailable = available;
+          if (!available) {
+            disableMotion();
+            motionButton.hidden = true;
+            tiltFab.hidden = true;
+            return;
+          }
+          enableMotion();
+        });
+      }
+      try {
+        initGL();
+        frameId = requestAnimationFrame(render);
+      } catch (error) {
+        console.error(error);
+        setStatus(true);
+      }
+    })();
+  </script>
+</body>
+</html>

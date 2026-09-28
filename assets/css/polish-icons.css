@@ -1,0 +1,16 @@
+/* ============================================================
+   Koda — polish integration: lab-note marker coordination
+   The inline SVG timeline markers (workstream 5) replace the
+   ::before dot from main.css. Geometry mirrors the original
+   ::before exactly (12px dot centered on the 2px border).
+   ============================================================ */
+.lab-note::before { content: none; }
+.lab-note > svg {
+  position: absolute;
+  inset-inline-start: -7px;
+  inset-block-start: 0.55rem;
+  width: 12px;
+  height: 12px;
+}
+/* icon spacing inside obsession cards (about) */
+.card > svg { margin-block-end: 1rem; }

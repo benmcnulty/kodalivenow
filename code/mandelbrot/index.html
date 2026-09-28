@@ -1,0 +1,3457 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050508" />
+  <meta name="color-scheme" content="dark" />
+  <title>Tie-Dye Mandelbrot Explorer &mdash; Koda&rsquo;s Code</title>
+  <meta name="description" content="A tie-dye Mandelbrot deep-zoom explorer &mdash; dive into infinite dye bands, switch render styles and palettes. Runs entirely in your browser." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Koda" />
+  <meta property="og:title" content="Tie-Dye Mandelbrot Explorer &mdash; Koda&rsquo;s Code" />
+  <meta property="og:description" content="A tie-dye Mandelbrot deep-zoom explorer &mdash; dive into infinite dye bands, switch render styles and palettes. Runs entirely in your browser." />
+  <meta property="og:image" content="https://kodalivenow.com/assets/img/og-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg" />
+  <link rel="preload" href="../../assets/fonts/clash-display-600.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../assets/fonts/dm-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="../../assets/css/main.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-type.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-glass.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-icons.css" />
+  <link rel="stylesheet" href="../../assets/css/polish-motion.css" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --k-ink: #f7f4ee;
+      --k-muted: rgba(247, 244, 238, 0.64);
+      --k-line: rgba(255, 255, 255, 0.17);
+      --k-accent: #b7f98b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    /* Fullscreen app feel: the page still scrolls so the footer stays
+       reachable, but no viewport scrollbar is ever rendered. */
+    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+    body {
+      margin: 0;
+      background: #050508;
+      color: var(--k-ink);
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      /* The fixed site header's rendered height varies with device font
+         metrics (measured ~67px headless, taller on iOS); it is measured
+         at runtime into --site-head-h so the stage starts exactly below it
+         and the top-row control circles can never slide under it. */
+      height: calc(100vh - var(--site-head-h, 76px));
+      height: calc(100dvh - var(--site-head-h, 76px));
+      margin-top: var(--site-head-h, 76px);
+      isolation: isolate;
+      overflow: hidden;
+      background: #050508;
+      font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      /* Touch-and-hold must never select page text (iOS callout fix). */
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    /* No-JS honesty: the app cannot run without JavaScript/WebGL. */
+    .k-noscript {
+      position: absolute; inset: 0; z-index: 5;
+      display: grid; place-items: center; text-align: center; padding: 2rem;
+    }
+    .k-noscript p { color: var(--k-ink); line-height: 1.6; max-width: 30ch; }
+    .k-noscript a { color: var(--k-accent); }
+    @media (prefers-reduced-motion: reduce) {
+      .t-back, .t-btn { transition: none !important; }
+    }
+    /* The stage sits below the fixed site header (runtime-measured), already
+       clear of the notch: collapse the top safe-area offset so it is not
+       double-counted, but keep the in-app-browser chrome offset. */
+    .stage .topbar { top: calc(var(--vv-top, 0px) + 12px); }
+  </style>
+  <style>
+    :root {
+      color-scheme: dark;
+      --k-ink: #f7f4ee;
+      --k-muted: rgba(247, 244, 238, 0.64);
+      --k-line: rgba(255, 255, 255, 0.17);
+      --k-accent: #b7f98b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    /* Fullscreen app feel: the page still scrolls so the footer stays
+       reachable, but no viewport scrollbar is ever rendered. */
+    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+    body {
+      margin: 0;
+      background: #050508;
+      color: var(--k-ink);
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      /* The fixed site header's rendered height varies with device font
+         metrics (measured ~67px headless, taller on iOS); it is measured
+         at runtime into --site-head-h so the stage starts exactly below it
+         and the top-row control circles can never slide under it. */
+      height: calc(100vh - var(--site-head-h, 76px));
+      height: calc(100dvh - var(--site-head-h, 76px));
+      margin-top: var(--site-head-h, 76px);
+      isolation: isolate;
+      overflow: hidden;
+      background: #050508;
+      font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      /* Touch-and-hold must never select page text (iOS callout fix). */
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    /* No-JS honesty: the app cannot run without JavaScript/WebGL. */
+    .k-noscript {
+      position: absolute; inset: 0; z-index: 5;
+      display: grid; place-items: center; text-align: center; padding: 2rem;
+    }
+    .k-noscript p { color: var(--k-ink); line-height: 1.6; max-width: 30ch; }
+    .k-noscript a { color: var(--k-accent); }
+    @media (prefers-reduced-motion: reduce) {
+      .t-back, .t-btn { transition: none !important; }
+    }
+    /* The stage sits below the fixed site header (runtime-measured), already
+       clear of the notch: collapse the top safe-area offset so it is not
+       double-counted, but keep the in-app-browser chrome offset. */
+    .stage .topbar { top: calc(var(--vv-top, 0px) + 12px); }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#stage">Skip to content</a>
+<header class="site-header">
+  <nav class="nav" aria-label="Primary">
+    <a class="brand" href="../../" aria-label="Koda &mdash; home">
+      <img src="../../assets/img/curl-mark.svg" alt="" width="30" height="30" />
+      <span>Koda</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="../../">Home</a></li>
+      <li><a href="../../about/">About</a></li>
+      <li><a href="../../now/">Now</a></li>
+      <li><a href="../../code/" aria-current="page">Code</a></li>
+    </ul>
+  </nav>
+</header>
+  <main class="stage" id="stage" aria-label="Tie-Dye Mandelbrot deep-zoom explorer">
+  <noscript>
+    <div class="k-noscript">
+      <p>Tie-Dye Mandelbrot needs JavaScript and WebGL to run. <a href="../">Back to Koda&rsquo;s Code</a></p>
+    </div>
+  </noscript>
+
+  <div class="mandel">
+
+  <div class="mandel-stage"><canvas id="c"></canvas></div>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="ui">
+    <div class="top-scrim" aria-hidden="true"></div>
+    <div class="bottom-scrim" aria-hidden="true"></div>
+    <div class="topbar">
+      <a class="t-back" href="../" aria-label="Back to Koda's Code">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Koda&rsquo;s Code</span>
+      </a>
+      <div class="t-actions">
+        <button class="t-btn" id="bLensTop" type="button" aria-label="Start camera" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.4 8.3A1.6 1.6 0 0 1 6 6.7h2.3l1.4-2.2a1 1 0 0 1 .8-.4h3a1 1 0 0 1 .8.4l1.4 2.2H18a1.6 1.6 0 0 1 1.6 1.6v8.9a1.6 1.6 0 0 1-1.6 1.6H6a1.6 1.6 0 0 1-1.6-1.6V8.3Z" stroke="currentColor" stroke-width="1.75"/><circle cx="12" cy="13.1" r="3.3" stroke="currentColor" stroke-width="1.75"/></svg>
+        </button>
+        <button class="t-btn" id="bMicTop" type="button" aria-label="Turn microphone on" aria-pressed="false">
+          <svg class="mic-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.4a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.4Z" stroke="currentColor" stroke-width="1.75"/><path d="M6 11.2a6 6 0 0 0 12 0" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M12 17.2v3.3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <svg class="mic-off-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.4a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.4Z" stroke="currentColor" stroke-width="1.75"/><path d="M6 11.2a6 6 0 0 0 12 0" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M12 17.2v3.3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M4.2 4.2l15.6 15.6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+        </button>
+        <button class="t-btn" id="bPause" type="button" aria-label="Pause animation" aria-pressed="false">
+          <svg class="pause-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.3 5.5v13 M14.7 5.5v13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <svg class="play-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.2 7.1l7.6 4.9-7.6 4.9V7.1Z" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+    <!-- Pre-production: the bottom layer is one flex row, not two
+         absolutely-positioned boxes that can collide. The title stays
+         bottom-left and subordinate; the hint flexes in the remaining
+         space and can never paint over the title. -->
+    <div class="bottom-layer">
+    <div class="title">
+      <h1>Tie-Dye Mandelbrot</h1>
+      <p>Deep-zoom explorer</p>
+    </div>
+    <!-- Phase 2.5 — collapsible gesture help: expanded by default (or per the
+         persisted choice); the small ? button collapses it to a single 44px
+         circle and re-expands it. -->
+    <div class="hint loud" id="hint" role="status">
+      <span class="hint-text">Tap to dive &middot; Hold to sink &middot; Drag to pan &middot; Pinch to zoom &middot; Double-tap to surface</span>
+      <button class="hint-toggle" id="hintToggle" type="button" aria-label="Hide gesture help" aria-pressed="false">?</button>
+    </div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="scrim" id="scrim"></div>
+  <section class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Appearance controls" tabindex="-1">
+    <button id="toolTab" class="tool-tab" type="button" aria-label="Open controls" aria-expanded="false" aria-controls="drawer">
+      <svg class="chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.5 14.5 12 9l5.5 5.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="drawer-body" id="drawerBody" aria-hidden="true" inert>
+    <span class="drawer-grip" aria-hidden="true"></span>
+    <div class="drawer-head">
+      <div class="drawer-title">
+        <h2>Appearance</h2>
+        <p class="drawer-sub" id="drawerSub">Flow Bands</p>
+      </div>
+    </div>
+    <div class="group">
+      <h3 id="styleLabel">Render style</h3>
+      <div class="seg" role="group" aria-labelledby="styleLabel" id="styleSeg"></div>
+      <p class="seg-caption" id="styleDesc" aria-live="polite"></p>
+    </div>
+    <div class="group">
+      <h3 id="palLabel">Palette</h3>
+      <button id="palRow" class="row-btn" type="button" aria-haspopup="dialog" aria-label="Open palette library">
+        <span class="row-chip" id="palRowChip" aria-hidden="true"></span>
+        <span class="row-text">
+          <span class="row-name" id="palRowName">Tie-Dye</span>
+          <span class="row-sub" id="palRowSub">Library &amp; custom builder</span>
+        </span>
+        <svg class="row-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 6 15.5 12 9.5 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="pal-strip" id="palStrip" role="group" aria-label="Quick palette select"></div>
+    </div>
+    <div class="group">
+      <h3 id="sensesLabel">Senses</h3>
+      <button id="sensesRow" class="row-btn" type="button" aria-haspopup="dialog" aria-label="Open microphone and backdrop controls">
+        <span class="row-text">
+          <span class="row-name">Microphone &amp; backdrop</span>
+          <span class="row-sub" id="sensesSummary">Mic off &middot; No backdrop</span>
+        </span>
+        <svg class="row-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 6 15.5 12 9.5 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="group">
+      <h3 id="liveLabel">Live</h3>
+      <button id="bMicDrawer" class="row-btn mic-row" type="button" aria-pressed="false" aria-label="Turn microphone on">
+        <svg class="row-mic" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.4a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.4Z" stroke="currentColor" stroke-width="1.75"/><path d="M6 11.2a6 6 0 0 0 12 0" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M12 17.2v3.3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+        <span class="row-text">
+          <span class="row-name">Microphone</span>
+          <span class="row-sub" id="micDrawerSub">Off</span>
+        </span>
+        <span class="row-state" id="micDrawerState">Off</span>
+      </button>
+    </div>
+    <div class="drawer-actions">
+      <button id="bReset" class="ghost-btn" type="button">Reset</button>
+    </div>
+
+    </div>
+    </div>
+  </section>
+  <div class="palette-sheet" id="palSheet" hidden inert>
+    <div class="sheet-scrim" aria-hidden="true"></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <section class="sheet-layer" id="sheetLayerList" aria-label="Palette library">
+        <header class="sheet-head">
+          <span class="sheet-head-pad" aria-hidden="true"></span>
+          <h2 id="sheetTitle">Palettes</h2>
+          <button class="sheet-x" id="sheetClose" type="button" aria-label="Close palettes">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          </button>
+        </header>
+        <div class="sheet-grid" id="sheetGrid" role="group" aria-label="Palettes"></div>
+      </section>
+      <section class="sheet-layer" id="sheetLayerEdit" aria-label="Palette editor" hidden>
+        <header class="sheet-head">
+          <button class="sheet-back" id="sheetBack" type="button" aria-label="Back to palettes">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <h2>New palette</h2>
+          <span class="sheet-head-pad" aria-hidden="true"></span>
+        </header>
+        <div class="sheet-edit">
+          <label class="custom-base" for="customBase">Base
+            <input type="color" id="customBase" value="#7A48E8" aria-label="Base color for aligned hue suggestions" />
+          </label>
+          <div class="harmony-chips" role="group" aria-label="Aligned hue suggestions">
+            <button type="button" class="harmony-chip" data-harmony="complementary">Complementary</button>
+            <button type="button" class="harmony-chip" data-harmony="analogous">Analogous</button>
+            <button type="button" class="harmony-chip" data-harmony="triadic">Triadic</button>
+            <button type="button" class="harmony-chip" data-harmony="square">Square</button>
+            <button type="button" class="harmony-chip" data-harmony="split">Split</button>
+            <button type="button" class="harmony-chip" data-harmony="surprise">Surprise me</button>
+          </div>
+          <div class="custom-preview" id="customPreview" aria-label="Generated palette preview"></div>
+          <input type="text" id="customName" maxlength="40" placeholder="Name this palette&hellip;" aria-label="Custom palette name" autocomplete="off" />
+        </div>
+        <footer class="sheet-foot">
+          <button type="button" class="sheet-btn ghost" id="customCancel">Cancel</button>
+          <button type="button" class="sheet-btn primary" id="customSave">Save</button>
+        </footer>
+      </section>
+
+    </div>
+  </div>
+
+    <div class="palette-sheet" id="sensesSheet" hidden inert>
+      <div class="sheet-scrim" aria-hidden="true"></div>
+      <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sensesSheetTitle">
+      <section class="sheet-layer" id="sensesRoot" aria-label="Senses sections">
+        <header class="sheet-head">
+          <button class="sheet-x" id="sensesClose" type="button" aria-label="Close senses">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <h2 id="sensesSheetTitle">Senses</h2>
+          <span class="sheet-head-pad" aria-hidden="true"></span>
+        </header>
+        <!-- Phase 2.6 — the Senses panel is a functional drill-down root: one
+             tap reaches a section's settings, back returns. Each drilled view
+             takes over this same panel (no separate overlay) and shows only
+             that section's controls. -->
+        <div class="drill-rows" role="group" aria-label="Senses sections">
+          <button class="row-btn drill-row" id="sensesMicRow" type="button" data-senses-layer="sensesMic">
+            <svg class="row-glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.4a2.8 2.8 0 0 1 2.8 2.8v5a2.8 2.8 0 0 1-5.6 0v-5A2.8 2.8 0 0 1 12 3.4Z" stroke="currentColor" stroke-width="1.75"/><path d="M6 11.2a6 6 0 0 0 12 0" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M12 17.2v3.3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+            <span class="row-text">
+              <span class="row-name">Microphone</span>
+              <span class="row-sub" id="sensesMicSummary">Off</span>
+            </span>
+            <svg class="row-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 6 15.5 12 9.5 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="row-btn drill-row" id="sensesBackdropRow" type="button" data-senses-layer="sensesBackdrop">
+            <svg class="row-glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.4 8.3A1.6 1.6 0 0 1 6 6.7h2.3l1.4-2.2a1 1 0 0 1 .8-.4h3a1 1 0 0 1 .8.4l1.4 2.2H18a1.6 1.6 0 0 1 1.6 1.6v8.9a1.6 1.6 0 0 1-1.6 1.6H6a1.6 1.6 0 0 1-1.6-1.6V8.3Z" stroke="currentColor" stroke-width="1.75"/><circle cx="12" cy="13.1" r="3.3" stroke="currentColor" stroke-width="1.75"/></svg>
+            <span class="row-text">
+              <span class="row-name">Backdrop</span>
+              <span class="row-sub" id="sensesBackdropSummary">Off</span>
+            </span>
+            <svg class="row-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 6 15.5 12 9.5 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="row-btn drill-row" id="sensesViewRow" type="button" data-senses-layer="sensesView">
+            <svg class="row-glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.75"/><path d="M12 11v5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="7.8" r="1.1" fill="currentColor"/></svg>
+            <span class="row-text">
+              <span class="row-name">View details</span>
+              <span class="row-sub" id="sensesViewSummary">&times;1</span>
+            </span>
+            <svg class="row-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 6 15.5 12 9.5 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </section>
+      <section class="sheet-layer" id="sensesMic" aria-label="Microphone settings" hidden>
+        <header class="sheet-head">
+          <button class="sheet-back" type="button" data-senses-back aria-label="Back to Senses">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <h2 id="sensesMicTitle">Microphone</h2>
+          <span class="sheet-head-pad" aria-hidden="true"></span>
+        </header>
+        <button id="bMic" class="seg-btn" type="button" aria-pressed="false">
+          <span class="seg-name">Microphone</span>
+          <span class="seg-desc" id="micState">Start listening</span>
+        </button>
+        <div class="sense-slider">
+          <label for="sensRange">Sensitivity <span id="sensVal">1.00&times;</span></label>
+          <input id="sensRange" type="range" min="0" max="2" step="0.05" value="1" />
+        </div>
+        <div class="audio-meter" aria-hidden="true"><span id="audioMeter"></span></div>
+        <div class="sense-status" id="audioStatus" role="status" aria-live="polite">The fractal listens only when you start it.</div>
+      </section>
+      <section class="sheet-layer" id="sensesBackdrop" aria-label="Backdrop settings" hidden>
+        <header class="sheet-head">
+          <button class="sheet-back" type="button" data-senses-back aria-label="Back to Senses">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <h2 id="sensesBackdropTitle">Backdrop</h2>
+          <span class="sheet-head-pad" aria-hidden="true"></span>
+        </header>
+        <div class="bg-row" role="group" aria-label="Backdrop source">
+          <button id="bgOff" class="bg-btn" type="button" aria-pressed="true">Off</button>
+          <button id="bgCam" class="bg-btn" type="button" aria-pressed="false">Camera</button>
+          <button id="bgPhoto" class="bg-btn" type="button" aria-pressed="false">Photo</button>
+        </div>
+        <div class="sense-row">
+          <button id="bFlipCam" class="ghost-btn" type="button" hidden>Flip camera</button>
+        </div>
+        <div class="sense-slider">
+          <label for="filmRange">Film <span id="filmVal">65%</span></label>
+          <input id="filmRange" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Fractal film strength over the backdrop" />
+        </div>
+        <input id="bgFile" type="file" accept="image/*" hidden />
+        <div class="sense-status" id="bgStatus" role="status" aria-live="polite">No background layer.</div>
+      </section>
+      <section class="sheet-layer" id="sensesView" aria-label="View details" hidden>
+        <header class="sheet-head">
+          <button class="sheet-back" type="button" data-senses-back aria-label="Back to Senses">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <h2 id="sensesViewTitle">View details</h2>
+          <span class="sheet-head-pad" aria-hidden="true"></span>
+        </header>
+        <div class="readout" id="readout" role="status" aria-label="View details">
+          <div class="mag" id="rMag">&times;1</div>
+          <div class="row"><span class="k">Center</span><span class="v" id="rCenter">&mdash;</span></div>
+          <div class="row"><span class="k">Iterations</span><span class="v" id="rIter">&mdash;</span></div>
+          <div class="row qual" id="rQualRow" hidden><span class="k">Detail</span><span class="v" id="rQual">Adaptive</span></div>
+        </div>
+      </section>
+      </div>
+    </div>
+  <div class="status" id="status" role="alert" hidden>
+    <div class="status-card">
+      <h2 id="statusTitle">Something went wrong</h2>
+      <p id="statusMsg"></p>
+    </div>
+  </div>
+
+  </div>
+  </main>
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <div class="footer-brand">
+        <img src="../../assets/img/curl-mark.svg" alt="" width="34" height="34" />
+        <span>Koda</span>
+      </div>
+      <div class="footer-icons">
+        <a href="https://www.threads.com/@kodalivenow" aria-label="Koda on Threads" rel="me"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.263 11.097c-.03-3.486-1.92-5.586-5.111-5.586-2.13 0-3.922.963-4.863 2.499l2.062 1.438c.535-.843 1.272-1.543 2.628-1.543 1.528 0 2.318.85 2.544 2.431a15 15 0 0 0-2.236-.173c-4.125 0-6.068 1.867-6.068 4.336s1.943 3.99 4.804 3.99c3.139 0 5.013-2.115 5.781-4.735.798.361 1.348 1.204 1.348 2.47 0 3.387-3.907 5.232-7.22 5.232-4.885 0-8.077-3.207-8.077-8.424 0-6.392 4.223-10.487 9.9-10.487 3.808 0 5.69 1.671 6.97 3.914l2.108-1.475C21.44 2.078 18.331 0 13.663 0 6.227 0 1.168 5.277 1.168 12.934c0 7 4.953 11.066 10.856 11.066 4.878 0 9.809-2.846 9.809-7.716 0-2.545-1.46-4.231-3.569-5.187m-6.33 4.855c-1.077 0-2.026-.512-2.026-1.453 0-1.483 1.822-1.934 3.606-1.934.678 0 1.34.045 1.927.173-.422 1.927-1.671 3.215-3.508 3.214Z"/></svg></a>
+        <a href="https://www.instagram.com/kodalivenow" aria-label="Koda on Instagram" rel="me"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg></a>
+      </div>
+      <p class="footer-handle">@kodalivenow on Threads &amp; Instagram</p>
+    </div>
+    <div class="footer-meta">
+      <p>&copy; 2026 Koda</p>
+      <p class="footer-colophon">Designed, written, and built by me.</p>
+    </div>
+  </div>
+</footer>
+  <style>
+    .mandel {
+      color-scheme: dark;
+      --ink: #f7f4ee;
+      --muted: rgba(247, 244, 238, 0.62);
+      --faint: rgba(247, 244, 238, 0.38);
+      --glass: rgba(10, 12, 18, 0.62);
+      --line: rgba(255, 255, 255, 0.16);
+      --accent: #8fb8ff;
+      font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      position: absolute;
+      inset: 0;
+    }
+
+
+    .mandel-stage { position: absolute; inset: 0; }
+    .mandel-stage canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: grab;
+    }
+    .mandel-stage canvas:active { cursor: grabbing; }
+
+    .ui { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+
+    /* Pre-production: the bottom layer is ONE flex row, not two
+       absolutely-positioned boxes. The title keeps its bottom-left,
+       subordinate slot; the hint takes the remaining space via flex and
+       can never overlap the title — in expanded, loud, or collapsed (?)
+       state. Both ride the same --vv-bottom offset so overlaying
+       in-app-browser chrome moves them together. */
+    .bottom-layer {
+      position: absolute;
+      z-index: 2;
+      left: 18px;
+      right: 12px;
+      bottom: calc(var(--vv-bottom, 0px) + env(safe-area-inset-bottom, 0px) + 76px);
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      pointer-events: none;
+    }
+    .bottom-layer .title {
+      position: static;
+      flex: none;
+    }
+    .bottom-layer .hint {
+      position: relative;
+      right: auto;
+      bottom: auto;
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 330px;
+      margin-left: auto;
+      pointer-events: auto;
+    }
+    .bottom-layer .hint.collapsed {
+      /* Collapsed: shrink-wrap to the 44px ? circle. Without this the
+         flex:1 growth would leave a wide invisible strip swallowing
+         stage taps (tap-to-dive) along the bottom-right. */
+      flex: none;
+      max-width: none;
+    }
+    /* Phase 1: the title block lives at the bottom of the viewport, quiet
+       and subordinate to the visual — kicker dropped (the top-row back
+       link already carries "Koda's Code"), H1 stepped down to Display 16. */
+    .title {
+      position: absolute;
+      left: 18px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+      z-index: 2;
+      pointer-events: none;
+    }
+    .title h1 {
+      margin: 0;
+      font-family: "Clash Display", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+      color: var(--ink);
+    }
+    .title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    /* Phase 1 — contrast guarantee: a static top scrim behind the control
+       row. Deterministic (no background sampling): dark enough at the
+       control band to hold 4.5:1 for near-white text/icons over even a
+       pure-white photo, fading to transparent below the row. */
+    .top-scrim {
+      position: absolute; top: 0; left: 0; right: 0; height: 150px; z-index: 1;
+      background: linear-gradient(to bottom,
+        rgba(4,6,10,.80) 0,
+        rgba(4,6,10,.58) 52px,
+        rgba(4,6,10,.22) 104px,
+        rgba(4,6,10,0) 150px);
+      pointer-events: none;
+    }
+    /* Matching quiet veil behind the bottom title + hint. */
+    .bottom-scrim {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 200px; z-index: 1;
+      background: linear-gradient(to top,
+        rgba(4,6,10,.62) 0,
+        rgba(4,6,10,.28) 100px,
+        rgba(4,6,10,0) 200px);
+      pointer-events: none;
+    }
+
+    /* Phase 1 — single top control row. One row, same order/spacing/styling
+       in both apps: back link left; camera, mic, pause right. Quiet icon
+       buttons (no glass pills); the scrim carries the contrast. */
+    .topbar {
+      position: absolute; z-index: 2;
+      /* Phase 2.5 — ride below overlaying top browser chrome (in-app
+         browsers): --vv-top is measured from visualViewport. */
+      top: calc(var(--vv-top, 0px) + env(safe-area-inset-top, 0px) + 12px);
+      left: 12px; right: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      pointer-events: none;
+    }
+    .topbar > * { pointer-events: auto; }
+    .t-back {
+      display: inline-flex; align-items: center; gap: 3px;
+      min-height: 48px; padding: 0 14px 0 2px; margin-left: -2px;
+      color: var(--ink); text-decoration: none; white-space: nowrap;
+      font-size: 15px; font-weight: 500;
+      text-shadow: 0 1px 10px rgba(0,0,0,.6);
+    }
+    .t-back svg { width: 20px; height: 20px; }
+    /* No drop-shadow filter on top-row SVGs: the SVG filter triggers a
+       compositor artifact where hover/active backgrounds smear and clip
+       against .stage { overflow: hidden }. The Phase 1 top scrim already
+       carries icon contrast. */
+    .t-back:hover { color: #fff; }
+    .t-actions { display: flex; align-items: center; gap: 2px; }
+    .t-btn {
+      appearance: none;
+      width: 48px; height: 48px;
+      padding: 0; border: 0; border-radius: 50%;
+      display: grid; place-items: center;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform 180ms ease, background-color 180ms ease, color 180ms ease;
+    }
+    .t-btn:hover { background: rgba(255,255,255,.10); }
+    .t-btn:active { transform: scale(.9); }
+    .t-btn svg {
+      width: 23px; height: 23px;
+      /* No drop-shadow filter here: the SVG filter triggers a compositor
+         artifact where the button's hover background smears above the button
+         and gets clipped flat by .stage { overflow: hidden }. The Phase 1
+         top scrim already carries icon contrast. */
+    }
+    .t-btn .play-icon { display: none; }
+    .t-btn[aria-pressed="true"] .pause-icon { display: none; }
+    .t-btn[aria-pressed="true"] .play-icon { display: block; margin-left: 2px; }
+    /* Mic is a direct toggle: the icon flips to mic-off and takes the
+       accent color when listening, so state reads at a glance. */
+    #bMicTop .mic-off-icon { display: none; }
+    #bMicTop[aria-pressed="true"] .mic-icon { display: none; }
+    #bMicTop[aria-pressed="true"] .mic-off-icon { display: block; }
+    #bMicTop[aria-pressed="true"] { color: var(--accent); }
+    /* Phase 2.5 — the top-row camera button mirrors camera state with the
+       same accent treatment as the mic, so "on" reads at a glance. */
+    #bLensTop[aria-pressed="true"] { color: var(--accent); }
+
+    /* film grain: a static SVG turbulence overlay above the canvas, below the UI */
+    .grain {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      opacity: 0.14; mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='0.55'/></svg>");
+    }
+
+    /* tool tab: the drawer's pull-handle at the bottom viewport edge.
+       Tight 52x44px touch target (matches the Kaleidoscope), bold 30px
+       chevron, no dead padding. The closed drawer is translated 100% of its
+       own height, so the 44px handle peeks above the bottom edge. */
+    .tool-tab {
+      position: absolute;
+      top: -44px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 52px;
+      height: 44px;
+      padding: 0;
+      appearance: none;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      border-radius: 14px 14px 0 0;
+      background: rgba(13, 15, 23, 0.94);
+      color: var(--ink);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    /* Phase 1: the tab is a single ^ chevron that rotates to v when the
+       drawer is open — state reflected purely by aria-expanded, so every
+       close path (toggle, scrim, Escape) stays in sync. */
+    .tool-tab svg {
+      width: 30px; height: 30px; transform: translateY(-1px);
+      transition: transform 320ms cubic-bezier(.22,.75,.18,1);
+    }
+    .tool-tab[aria-expanded="true"] svg { transform: translateY(-1px) rotate(180deg); }
+
+    .scrim {
+      position: absolute; inset: 0; z-index: 5;
+      background: rgba(0, 0, 0, 0.38);
+      opacity: 0; pointer-events: none;
+      transition: opacity 300ms ease;
+    }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+
+    /* bottom-sheet appearance drawer: slides out of / back into the
+       bottom viewport edge, same motion language as the Kaleidoscope */
+    /* Phase 2.5 — the drawer is a compact bottom deck: it never covers more
+       than ~42% of the visual viewport so the fractal stays in view. It
+       rides above overlaying bottom browser chrome via --vv-bottom
+       (measured from visualViewport) and layers below the top row
+       (z-index 6), so its heading is always clear and the hide tab stays
+       inside the visual viewport. Content scrolls inside .drawer-body; the
+       tab never moves. */
+    .drawer {
+      position: absolute;
+      left: 50%; bottom: var(--vv-bottom, 0px);
+      width: min(680px, 100vw - 24px);
+      max-height: 42dvh;
+      display: flex; flex-direction: column;
+      transform: translateX(-50%) translateY(100%);
+      transition: transform 420ms cubic-bezier(.22,.75,.18,1), bottom 200ms ease;
+      background: rgba(13, 15, 23, 0.94);
+      border: 1px solid var(--line);
+      border-bottom: none;
+      border-radius: 22px 22px 0 0;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      z-index: 6;
+      pointer-events: auto;
+    }
+    .drawer.open { transform: translateX(-50%) translateY(0); }
+    /* inner scroll container: the drawer itself must not clip, or the
+       handle tab riding its top edge would be cut off */
+    .drawer-body {
+      overflow-y: auto;
+      min-height: 0;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    }
+    .drawer-grip {
+      display: block; width: 40px; height: 4px; border-radius: 2px;
+      background: var(--faint); margin: 4px auto 8px;
+    }
+    .drawer-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .drawer h2 {
+      margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+    }
+    .drawer h2:focus { outline: none; }
+    .drawer-sub { margin: 3px 0 0; font-size: 12px; font-weight: 400; color: var(--muted); }
+    .drawer h3 {
+      margin: 12px 0 8px; font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+      font-size: 12.5px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .seg { display: flex; gap: 8px; }
+    .seg-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 14px;
+      padding: 11px 14px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--ink);
+      font: inherit;
+      width: 100%;
+      transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    }
+    /* the render-style seg is one compact row of three chips; the active
+       style's description lives in the caption underneath */
+    #styleSeg .seg-btn { flex: 1 1 0; text-align: center; padding: 12px 4px; min-height: 48px; }
+    #styleSeg .seg-btn .seg-name { font-size: 13px; font-weight: 600; }
+    .seg-caption { font-size: 12px; color: var(--muted); margin: 8px 2px 0; min-height: 15px; }
+    .seg-btn .seg-name { display: block; font-size: 14px; font-weight: 600; }
+    .seg-btn .seg-desc { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .seg-btn[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: rgba(143, 184, 255, 0.08);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(143, 184, 255, 0.22);
+    }
+
+    /* row buttons: one-tap entries into the layered sheets (palette library,
+       senses). Same glass as the style segments; the sheet does the editing. */
+    .row-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 14px;
+      padding: 10px 12px;
+      cursor: pointer;
+      color: var(--ink);
+      font: inherit;
+      width: 100%;
+      display: flex; align-items: center; gap: 12px; text-align: left;
+      transition: border-color 180ms ease, background 180ms ease;
+    }
+    .row-btn:hover { border-color: rgba(255,255,255,.3); }
+    .row-chip {
+      flex: none; width: 34px; height: 34px; border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.18);
+    }
+    .row-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .row-name { font-size: 14px; font-weight: 600; }
+    .row-sub {
+      font-size: 12px; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .row-chev { flex: none; width: 18px; height: 18px; color: var(--muted); }
+
+    /* Phase 2.6 — Senses drill-down: the panel root lists functional sections
+       (drawer row grammar); each drilled layer takes over the same panel
+       with a persistent back button (the palette-sheet edit-layer pattern),
+       showing only that section's controls. */
+    .drill-rows { display: grid; gap: 8px; }
+    .row-glyph { flex: none; width: 24px; height: 24px; color: var(--muted); }
+    .drill-row:hover .row-glyph { color: var(--ink); }
+    /* Layer swap reads as navigation, not a new overlay: a short
+       cross-fade/slide on the incoming layer. */
+    @media (prefers-reduced-motion: no-preference) {
+      .sheet-layer.layer-enter { animation: layerIn 180ms ease-out; }
+      @keyframes layerIn {
+        from { opacity: 0; transform: translateX(14px); }
+        to { opacity: 1; transform: none; }
+      }
+    }
+
+    /* ---- layered sheets: palette library / editor / senses ----
+       Mirrors the Kaleidoscope's palette sheet: each layer fits the viewport
+       with zero scrolling; the sticky footer keeps Cancel/Save reachable. */
+    .palette-sheet { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+    .palette-sheet[hidden] { display: none; }
+    /* Phase 1 — one sheet component: full scrim behind the bottom dialog.
+       The scrim fades in with the sheet and outside-tap closes it (one
+       close grammar: x / back / scrim-tap / Escape). */
+    .palette-sheet .sheet-scrim {
+      position: absolute; inset: 0; z-index: 0;
+      background: rgba(0, 0, 0, 0.42);
+      pointer-events: auto;
+      opacity: 0;
+      transition: opacity 320ms ease;
+    }
+    .palette-sheet:not([hidden]) .sheet-scrim { opacity: 1; }
+    .sheet-card {
+      pointer-events: auto;
+      z-index: 1;
+      position: absolute; left: 50%; bottom: var(--vv-bottom, 0px); transform: translateX(-50%);
+      width: min(680px, calc(100vw - 24px));
+      /* Phase 2.5 — sheets are layered, never tall stacks: same 42dvh cap as
+         the drawer so the fractal is never fully covered. Layers scroll
+         inside (.sheet-layer / .sheet-grid already scroll). */
+      max-height: 42dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+      padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+      border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0;
+      background:
+        radial-gradient(circle at 50% -20%, rgba(255,255,255,.18), transparent 52%),
+        linear-gradient(155deg, rgba(20, 26, 36, .76), rgba(6, 8, 13, .88));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.16),
+        0 -24px 70px rgba(0,0,0,.4);
+      -webkit-backdrop-filter: blur(30px) saturate(145%);
+      backdrop-filter: blur(30px) saturate(145%);
+    }
+    .sheet-layer { display: flex; flex-direction: column; min-height: 0; }
+    .sheet-layer[hidden] { display: none; }
+    .sheet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .sheet-head h2 {
+      flex: 1 1 auto; margin: 0; text-align: center;
+      font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: rgba(255,255,255,.88);
+    }
+    .sheet-head h3 {
+      margin: 14px 0 8px; font-size: 12.5px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    }
+    .sheet-head h3:first-of-type { margin-top: 2px; }
+    .sheet-x, .sheet-back {
+      flex: none; width: 44px; height: 44px; border-radius: 13px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.72); cursor: pointer; display: grid; place-items: center;
+    }
+    .sheet-x svg, .sheet-back svg { width: 16px; height: 16px; }
+    .sheet-x:hover, .sheet-back:hover { color: #fff; border-color: rgba(255,255,255,.3); }
+    .sheet-head-pad { flex: none; width: 44px; }
+    .sheet-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+      gap: 12px 10px; overflow-y: auto; padding: 2px 2px 4px;
+      /* Bounded scroll region, same pattern as .sheet-edit: explicit
+         flex + min-height:0 so the grid deterministically shrinks and
+         scrolls on every engine instead of relying on the automatic
+         minimum-size rule (which WebKit fumbles), stranding tiles. */
+      flex: 1 1 auto; min-height: 0;
+    }
+    .sheet-tile {
+      position: relative; display: flex; flex-direction: column; gap: 6px;
+      -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
+    }
+    .sheet-swatch {
+      height: 46px; border-radius: 12px; padding: 0; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.12); background: var(--palette);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,.28);
+      transition: transform 120ms ease;
+    }
+    .sheet-tile.holding .sheet-swatch { transform: scale(.93); }
+    .sheet-swatch[aria-pressed="true"] {
+      border-color: rgba(255,255,255,.72);
+      box-shadow: 0 0 0 2px rgba(143,184,255,.28);
+    }
+    .sheet-tile-name {
+      font-size: 12px; color: rgba(255,255,255,.66); text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sheet-tile.sheet-new {
+      /* 68px matches a regular tile (46px swatch + 6px gap + ~16px label)
+         so the New tile never makes its row taller than its siblings and
+         pokes past the sheet edge on its own. */
+      align-items: center; justify-content: center; gap: 6px; min-height: 68px;
+      border: 1px dashed rgba(255,255,255,.24); border-radius: 12px; cursor: pointer;
+      background: none; color: rgba(255,255,255,.6);
+      font: inherit;
+    }
+    .sheet-tile.sheet-new:hover { border-color: rgba(143,184,255,.5); color: var(--accent); }
+    .sheet-new-plus { font-size: 22px; font-weight: 300; line-height: 1; }
+    /* Trash-can delete prompt: anchored over the held tile (hold-to-delete
+       is the single delete path). KodaPalettes.confirmDelete() positions it
+       over the tile and clamps it inside the sheet bounds, so the prompt
+       (wider than a narrow tile) is never clipped by the sheet edge. */
+    .delete-prompt {
+      position: absolute; z-index: 5;
+      width: max-content; min-width: 184px;
+      max-width: min(250px, calc(100vw - 40px));
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; padding: 10px;
+      background: rgba(10,12,18,.86); border: 1px solid rgba(255,120,120,.45);
+      border-radius: 12px;
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    .delete-prompt-name {
+      font-size: 12px; color: #ffd9d9; max-width: 100%;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .delete-prompt-actions { display: flex; gap: 8px; }
+    .delete-prompt .sheet-btn {
+      flex: none; min-height: 0; padding: 7px 10px; font-size: 12px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px; border-radius: 9px;
+    }
+    .sheet-btn.danger {
+      border: 1px solid rgba(255,120,120,.5); background: rgba(120,20,20,.35);
+      color: #ffb3b3;
+    }
+    .sheet-btn.danger:hover { color: #fff; border-color: rgba(255,120,120,.8); }
+    /* Palette editor: same bounded-scroll pattern as the Kaleidoscope
+       editor. .sheet-edit is the flex scroll region between a pinned
+       header and footer so the editor can exceed the 42dvh sheet cap
+       without the footer riding over the name input. */
+    .sheet-edit { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    #sheetLayerEdit .sheet-head { flex: none; }
+    #sheetLayerList .sheet-head { flex: none; }
+    .custom-base { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,.72); cursor: pointer; }
+    #customBase { width: 44px; height: 34px; padding: 2px; font-size: 16px; border: 1px solid rgba(255,255,255,.18); border-radius: 9px; background: rgba(255,255,255,.06); cursor: pointer; }
+    .harmony-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .harmony-chip {
+      font-size: 12px; font-weight: 600; line-height: 1; padding: 9px 11px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.72); cursor: pointer;
+      transition: border-color 150ms ease, color 150ms ease, transform 150ms ease;
+    }
+    .harmony-chip:hover { color: #fff; border-color: rgba(255,255,255,.32); }
+    .harmony-chip:active { transform: scale(.95); }
+    .custom-preview { display: flex; gap: 4px; }
+    .custom-preview:empty { display: none; }
+    .custom-preview span { flex: 1 1 0; height: 22px; border-radius: 7px; border: 1px solid rgba(255,255,255,.14); }
+    #customName {
+      width: 100%; box-sizing: border-box; font-family: inherit;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px; color: #fff; font-size: 16px; padding: 10px 12px;
+    }
+    #customName::placeholder { color: rgba(255,255,255,.35); }
+    /* iOS Safari auto-zooms any text field under 16px on focus, which used
+       to shove the Save button off-screen. Keep every text input at 16px so
+       the view never jumps. (Never maximum-scale=1 / user-scalable=no: that
+       harms accessibility.) */
+    input[type="text"], input[type="search"], textarea, select { font-size: 16px; }
+    /* Footer is a pinned flex item now, not sticky: with the card as the
+       scroll container the sticky footer used to ride up over the name
+       input whenever the editor exceeded the 42dvh cap. */
+    .sheet-foot {
+      flex: none; display: flex; gap: 10px;
+      margin-top: 12px; padding-top: 10px;
+      background: linear-gradient(transparent, rgba(6,8,13,.88) 32%);
+    }
+    .sheet-btn {
+      flex: 1 1 0; min-height: 46px; border-radius: 12px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .sheet-btn.ghost {
+      border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.78);
+    }
+    .sheet-btn.primary {
+      border: 1px solid rgba(143,184,255,.4); background: rgba(143,184,255,.16);
+      color: var(--ink);
+    }
+    .sheet-btn:active { transform: scale(.98); }
+    /* the senses layer reuses the drawer's sense controls verbatim; tighten
+       the slider's top margin since the layer head already spaces it */
+    #sensesMic .sense-slider, #sensesBackdrop .sense-slider { margin-top: 2px; }
+
+    /* senses: mic + backdrop controls, same glass as the style segments */
+    .sense-slider { margin-top: 12px; }
+    .sense-slider label {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 12px; font-weight: 600;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .sense-slider label span { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .sense-slider input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+    .audio-meter {
+      height: 4px; border-radius: 2px; overflow: hidden;
+      background: rgba(255, 255, 255, 0.08); margin-top: 10px;
+    }
+    .audio-meter span {
+      display: block; height: 100%; width: 100%;
+      transform: scaleX(0); transform-origin: left center;
+      background: linear-gradient(90deg, var(--accent), #b7f98b);
+    }
+    .sense-status {
+      margin-top: 8px; min-height: 15px;
+      font-size: 12px; line-height: 1.5; color: var(--muted);
+    }
+    .sense-sub {
+      margin-top: 20px !important;
+      font-family: 'Clash Display', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .bg-row { display: flex; gap: 8px; }
+    .bg-btn {
+      flex: 1; appearance: none; cursor: pointer; font: inherit;
+      font-size: 14px; font-weight: 600;
+      color: var(--ink);
+      border: 1px solid var(--line); border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 9px 4px;
+      transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    }
+    .bg-btn[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: rgba(143, 184, 255, 0.08);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .sense-row { display: flex; gap: 8px; margin-top: 10px; }
+    .sense-row[hidden], #bFlipCam[hidden] { display: none; }
+
+    .drawer-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .ghost-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink);
+      font: inherit; font-size: 14px; font-weight: 500;
+      padding: 11px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform 180ms ease, background 180ms ease;
+    }
+    .ghost-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.06); }
+
+    /* full-screen status overlay for hard failures / context restore */
+    .status {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(5, 5, 8, 0.85);
+      padding: 32px; text-align: center;
+    }
+    .status[hidden] { display: none; }
+    .status-card h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+    .status-card p { margin: 0 auto; font-size: 13px; line-height: 1.55; color: var(--muted); max-width: 330px; }
+
+    /* Phase 2.5 — focus/active rings are inset box-shadows, never external
+       outlines: external outlines clip against overflow-hidden containers
+       (the sheet × ring against the sheet card, the top-row camera circle
+       against the stage). 44px touch targets retained; glyphs keep
+       intentional internal padding. */
+    .mandel :focus-visible, .palette-sheet :focus-visible { outline: none; }
+    .mandel button:focus-visible, .mandel a:focus-visible, .mandel input:focus-visible,
+    .mandel select:focus-visible, .mandel textarea:focus-visible,
+    .mandel [role="switch"]:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--accent);
+    }
+    /* The palette sheet lives outside .mandel, so --accent is undefined
+       there: use the literal accent for its inset rings (same #8fb8ff). */
+    .palette-sheet button:focus-visible, .palette-sheet a:focus-visible,
+    .palette-sheet input:focus-visible, .palette-sheet select:focus-visible,
+    .palette-sheet textarea:focus-visible {
+      box-shadow: inset 0 0 0 2px #8fb8ff;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+
+    /* Phase 2.5 — collapsible gesture help: expanded by default with the
+       useful gesture text; the small ? button collapses it to a single
+       44px circle and re-expands it. The collapsed choice persists in
+       localStorage, so a returning visitor is never nagged. The expanded
+       text still rests quiet and pops loud for ~6s / first read. The
+       collapsed footprint is the 44px re-expand target, bottom-right,
+       clear of the bottom-left title at 390px. */
+    .hint {
+      position: absolute;
+      z-index: 2;
+      right: 12px;
+      bottom: calc(var(--vv-bottom, 0px) + env(safe-area-inset-bottom, 0px) + 76px);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      /* Flex child of .bottom-layer: the row gives it the space left of
+         the title, so no fixed vw cap is needed here (the .bottom-layer
+         override sets the desktop max). The loud-state scale pop grows
+         into the 16px row gap, never over the title. */
+      max-width: min(62vw, 330px);
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--faint);
+      background: rgba(10, 12, 18, 0.42);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 7px 8px 7px 11px;
+      pointer-events: auto;
+      opacity: 0.6;
+      transform: scale(1);
+      transform-origin: bottom right;
+      transition:
+        opacity 260ms ease,
+        transform 260ms cubic-bezier(.34,1.45,.64,1),
+        background-color 260ms ease,
+        color 260ms ease,
+        border-color 260ms ease,
+        max-width 260ms ease,
+        padding 260ms ease;
+    }
+    .hint.loud {
+      opacity: 1;
+      transform: scale(1.07);
+      color: var(--ink);
+      background: rgba(10, 12, 18, 0.8);
+      border-color: var(--line);
+    }
+    .hint-text { min-width: 0; }
+    /* The ? toggle: a proper 44px touch target, visually distinct so the
+       collapse affordance is implicit. */
+    .hint-toggle {
+      appearance: none;
+      flex: none;
+      width: 44px; height: 44px;
+      margin: -4px -4px -4px 0;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--ink);
+      font-size: 17px; font-weight: 700; line-height: 1;
+      display: grid; place-items: center;
+      cursor: pointer;
+      transition: background-color 180ms ease, transform 180ms ease;
+    }
+    .hint-toggle:hover { background: rgba(255, 255, 255, 0.12); }
+    .hint-toggle:active { transform: scale(.92); }
+    /* Collapsed: only the ? circle remains. Placed after .loud so the
+       quiet-state rules win when both classes are present. */
+    .hint.collapsed {
+      max-width: none;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      opacity: 1;
+      transform: none;
+      gap: 0;
+    }
+    .hint.collapsed .hint-text { display: none; }
+    .hint.collapsed .hint-toggle { margin: 0; }
+
+    /* Phase 1 (I-10 fix): the toast lives outside the .ui stacking context
+       with its own z-index above drawer (6) and sheet (8), so feedback is
+       visible in the context that fired it. */
+    .toast {
+      position: absolute;
+      z-index: 30;
+      left: 50%;
+      bottom: calc(var(--vv-bottom, 0px) + env(safe-area-inset-bottom, 0px) + 76px);
+      transform: translateX(-50%) translateY(8px);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      background: var(--glass);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 18px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity: 0;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Phase 2: inline palette quick-strip — tapping a swatch applies the
+       palette immediately; the sheet stays closed. */
+    .pal-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .pal-swatch {
+      width: 40px; height: 40px; border-radius: 12px; padding: 0; cursor: pointer;
+      border: 1px solid var(--line); background: var(--palette);
+    }
+    .pal-swatch[aria-pressed="true"] {
+      border-color: rgba(255,255,255,.65);
+      box-shadow: 0 0 0 2px rgba(255,255,255,.25);
+    }
+    /* Phase 2: mic toggle row state pill. */
+    .row-mic { width: 20px; height: 20px; flex: none; color: var(--ink); opacity: .85; }
+    .row-state { font-size: 12px; font-weight: 600; color: var(--ink); opacity: .55; }
+    .mic-row[aria-pressed="true"] .row-state { opacity: 1; color: #b7f99b; }
+    /* Phase 2: the senses sheet is its own L2 layer — its content scrolls
+       inside the card, independent of the palette sheet. */
+    #sensesSheet .sheet-layer { overflow-y: auto; }
+    /* Phase 2: L3 reset-scope prompt — small anchored confirmation.
+       Scopes are hold-to-confirm (500ms, movement cancels); Cancel is a tap. */
+    .scope-prompt {
+      position: fixed; z-index: 40; width: 232px;
+      border: 1px solid var(--line); border-radius: 16px;
+      background: linear-gradient(155deg, rgba(24,30,42,.96), rgba(8,10,16,.96));
+      box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.14);
+      -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+      padding: 12px;
+    }
+    .scope-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
+    .scope-hint { margin: 2px 0 10px; font-size: 11px; color: var(--ink); opacity: .55; }
+    .scope-options { display: grid; gap: 6px; }
+    .scope-option {
+      display: flex; align-items: baseline; gap: 8px; width: 100%;
+      padding: 9px 10px; border-radius: 10px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05);
+      color: var(--ink); font: inherit; text-align: left;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+    .scope-option strong { font-size: 13px; font-weight: 600; }
+    .scope-option small { font-size: 11px; opacity: .55; }
+    .scope-option.holding { background: rgba(183,249,139,.16); border-color: rgba(183,249,139,.5); }
+    .scope-cancel {
+      width: 100%; margin-top: 8px; padding: 9px 10px; border-radius: 10px;
+      border: 1px solid transparent; background: transparent;
+      color: var(--ink); opacity: .6; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .scope-cancel:hover { opacity: 1; background: rgba(255,255,255,.06); }
+
+    .readout {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 16px 13px;
+      font-variant-numeric: tabular-nums;
+    }
+    .readout .mag {
+      font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      line-height: 1.1;
+    }
+    .readout .row {
+      margin-top: 5px;
+      font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .readout .row .k { color: var(--faint); text-transform: uppercase; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+    .readout .row .v { color: var(--ink); }
+    .readout .row.qual .v { color: var(--accent); }
+    .readout .row[hidden] { display: none; }
+
+    @media (max-width: 520px) {
+      .bottom-layer { left: 14px; }
+      .topbar { left: 8px; right: 8px; }
+      .toast { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }
+      .readout .row .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    }
+  </style>
+
+<script src="../shared/koda-palettes.js"></script>
+<script>
+
+(() => {
+  'use strict';
+  const canvas = document.getElementById('c');
+  const hint = document.getElementById('hint');
+  const toastEl = document.getElementById('toast');
+  const rMag = document.getElementById('rMag');
+  const rCenter = document.getElementById('rCenter');
+  const rIter = document.getElementById('rIter');
+  const rQualRow = document.getElementById('rQualRow');
+  const rQual = document.getElementById('rQual');
+  const bPause = document.getElementById('bPause');
+  const toolTab = document.getElementById('toolTab');
+  const drawer = document.getElementById('drawer');
+  const scrim = document.getElementById('scrim');
+  const drawerBody = document.getElementById('drawerBody');
+  const styleSeg = document.getElementById('styleSeg');
+  const bReset = document.getElementById('bReset');
+  const bMicDrawer = document.getElementById('bMicDrawer');
+  const micDrawerSub = document.getElementById('micDrawerSub');
+  const micDrawerState = document.getElementById('micDrawerState');
+  // Phase 2.6 — Senses drill-down root summaries, kept live by the update fns.
+  const sensesMicSummary = document.getElementById('sensesMicSummary');
+  const sensesBackdropSummary = document.getElementById('sensesBackdropSummary');
+  const sensesViewSummary = document.getElementById('sensesViewSummary');
+  const bMic = document.getElementById('bMic');
+  const bMicTop = document.getElementById('bMicTop');
+  const bLensTop = document.getElementById('bLensTop');
+  const micStateEl = document.getElementById('micState');
+  const audioStatusEl = document.getElementById('audioStatus');
+  const audioMeterEl = document.getElementById('audioMeter');
+  const sensRange = document.getElementById('sensRange');
+  const sensVal = document.getElementById('sensVal');
+  const bgOffBtn = document.getElementById('bgOff');
+  const bgCamBtn = document.getElementById('bgCam');
+  const bgPhotoBtn = document.getElementById('bgPhoto');
+  const bFlipCam = document.getElementById('bFlipCam');
+  const bgFileInput = document.getElementById('bgFile');
+  const bgStatusEl = document.getElementById('bgStatus');
+  const filmRange = document.getElementById('filmRange');
+  const filmVal = document.getElementById('filmVal');
+  const statusEl = document.getElementById('status');
+  const statusTitle = document.getElementById('statusTitle');
+  const statusMsg = document.getElementById('statusMsg');
+
+  const REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function showStatus(msg, title){
+    statusTitle.textContent = title || 'Something went wrong';
+    statusMsg.textContent = msg;
+    statusEl.hidden = false;
+  }
+  function hideStatus(){ statusEl.hidden = true; }
+
+  const gl = canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false });
+  // Phase C: subpixel speckle control needs screen-space derivatives
+  // (OES_standard_derivatives — universally available on iOS Safari).
+  // Absent -> the fragment shader defines fwidth(x) as 0, i.e. the
+  // pre-Phase-C look, never a compile failure.
+  const derivExt = gl.getExtension('OES_standard_derivatives');
+  if (!gl) {
+    showStatus('WebGL is unavailable on this device, so the fractal cannot render.', 'WebGL unavailable');
+    return;
+  }
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ---------- double-double arithmetic (Dekker) ----------
+  // A double-double is [hi, lo] with ~32 significant decimal digits. This is
+  // what lets the view center and the reference orbit stay exact down to
+  // ~1e-30 magnification, far past float64's ~1e-16 wall.
+  const DD_SPLIT = 134217729; // 2^27 + 1
+  function ddTwoSum(a, b){
+    const s = a + b, v = s - a;
+    return [s, (a - (s - v)) + (b - v)];
+  }
+  function ddQuickTwoSum(a, b){ // valid when |a| >= |b|; harmless otherwise for our uses
+    const s = a + b;
+    return [s, b - (s - a)];
+  }
+  function ddTwoProd(a, b){
+    const p = a * b;
+    const c = DD_SPLIT * a, ah = c - (c - a), al = a - ah;
+    const d = DD_SPLIT * b, bh = d - (d - b), bl = b - bh;
+    return [p, ((ah * bh - p) + ah * bl + al * bh) + al * bl];
+  }
+  const ddFromNum = x => [x, 0];
+  const ddToNum = a => a[0] + a[1];
+  function ddAdd(a, b){
+    const se = ddTwoSum(a[0], b[0]);
+    const e = se[1] + a[1] + b[1];
+    return ddQuickTwoSum(se[0], e);
+  }
+  function ddSub(a, b){ return ddAdd(a, [-b[0], -b[1]]); }
+  function ddMul(a, b){
+    const pe = ddTwoProd(a[0], b[0]);
+    const e = pe[1] + a[0]*b[1] + a[1]*b[0];
+    return ddQuickTwoSum(pe[0], e);
+  }
+  function ddLerp(a, b, e){ // a, b double-double; e plain number 0..1
+    return ddAdd(a, ddMul(ddFromNum(e), ddSub(b, a)));
+  }
+  // complex double-double: {x: dd, y: dd}; returns z^2 + c
+  function cddSqrAdd(z, c){
+    const xx = ddMul(z.x, z.x), yy = ddMul(z.y, z.y), xy = ddMul(z.x, z.y);
+    return {
+      x: ddAdd(ddSub(xx, yy), c.x),
+      y: ddAdd(ddAdd(xy, xy), c.y)
+    };
+  }
+
+  const VSRC = `
+    attribute vec2 a_pos;
+    void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }
+  `;
+  const FSRC = (derivExt
+      ? '#extension GL_OES_standard_derivatives : enable\n'
+      : '#define fwidth(x) (0.0)\n') + `
+    #ifdef GL_FRAGMENT_PRECISION_HIGH
+      precision highp float;
+    #else
+      precision mediump float;
+    #endif
+    uniform vec2 u_res;
+    uniform vec2 u_center;   // absolute center (direct mode only)
+    uniform vec2 u_delta;    // center minus reference anchor, tiny (perturbation mode)
+    uniform float u_scale;
+    uniform float u_dye;
+    uniform float u_iter;
+    uniform float u_flow;
+    uniform float u_blend;    // renderer domain: 0 = classic float32, 1 = perturbation; animates 0..1 over 3 frames on switch
+    uniform float u_orbitLen; // valid reference-orbit texels (Zhuoran exhaustion guard)
+    uniform sampler2D u_orbit;
+    uniform float u_orbitW;
+    uniform float u_orbitH;
+    uniform vec3 u_palA;
+    uniform vec3 u_palB;
+    uniform vec3 u_palC;
+    uniform vec3 u_palD;
+    uniform float u_styleA;  // crossfade pair: style changes blend A -> B
+    uniform float u_styleB;  // instead of hard-flipping, over ~0.2 s
+    uniform float u_xfade;
+    uniform sampler2D u_bg;  // backdrop texture (unit 1): camera frame or photo, <=160px
+    uniform float u_bgMix;   // 0 = layer off (fetch skipped); eases 0..1 on toggle
+    uniform float u_film;    // fractal-as-color-film strength over the backdrop (0..1)
+    uniform float u_bgAspect; // backdrop texture aspect (width/height), from BG_W/BG_H
+    uniform float u_treb;    // smoothed treble energy 0..1 while the mic is live, else 0
+
+    float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+
+    vec3 palMix(float t){
+      t = fract(t);
+      vec3 col = mix(u_palA, u_palB, smoothstep(0.0, 0.33, t));
+      col = mix(col, u_palC, smoothstep(0.33, 0.66, t));
+      col = mix(col, u_palD, smoothstep(0.66, 1.0, t));
+      return col;
+    }
+
+    // Phase C anti-speckle: every style paints with terms that oscillate in
+    // the smooth-iteration / trap fields (bands, hue indexes, filaments).
+    // Where such a field varies faster than pixels resolve (fwidth >> 1
+    // cycle/px) the oscillation would alias into subpixel speckle, so each
+    // term fades to its analytic local mean there. Where the field IS
+    // resolvable the fade is ~1 and the look is unchanged. aaFade maps
+    // "cycles per pixel" to a 1 (resolvable) -> 0 (unresolvable) weight.
+    float aaFade(float w){ return 1.0/(1.0 + w); }
+
+    // Escape-time coloring shared by both renderer domains, so the
+    // domain switch is a true crossfade of finished color. Parametrized by
+    // style (st) so look changes crossfade A -> B instead of hard-flipping.
+    vec3 shadeStyle(float st, float iter, float m2, float escaped){
+      vec3 col;
+      if(escaped < 0.5){
+        col = u_palA*0.10 + vec3(0.008, 0.002, 0.016);
+      } else {
+        float sn = iter + 1.0 - log2(0.5*log2(max(m2, 2.0001)));
+        float bands = sn*0.55;
+        vec3 palMean = (u_palA + u_palB + u_palC + u_palD)*0.25;
+        // color flows along the escape bands themselves, so every bit of
+        // motion follows the fractal's own structure instead of washing over it
+        float idx = fract(bands*0.085 + u_flow + u_dye);
+        float aaHue = aaFade(fwidth(bands)*0.085); // hue-index resolvability
+
+        if(st < 0.5){
+          // flow bands: the classic tie-dye wash
+          vec3 dye = mix(palMean, palMix(idx), aaHue);
+          float shade = 0.66 + 0.34*cos(fract(bands)*6.2831853);
+          shade = mix(0.66, shade, aaFade(fwidth(bands))); // mean shade = 0.66
+          col = dye*shade;
+          col += vec3(1.0, 0.95, 1.0)*exp(-sn*0.30)*0.30*(1.0 + u_treb*1.6);
+        } else if(st < 1.5){
+          // contour lines: electric topography
+          float t = fract(bands*0.30);
+          float line = smoothstep(0.10, 0.02, min(t, 1.0-t));
+          line = mix(0.12, line, aaFade(fwidth(bands)*0.30)); // mean line density
+          col = mix(palMean, palMix(idx), aaHue)*(0.12 + line*1.5);
+          col += vec3(1.0)*exp(-sn*0.35)*0.15*(1.0 + u_treb*1.6);
+        } else {
+          // nebula glow: soft and dreamy
+          float g = exp(-sn*0.10);
+          float hue = fract(sn*0.035 + u_flow*0.7 + u_dye);
+          col = mix(palMean, palMix(hue), aaFade(fwidth(sn)*0.035))*(0.22 + g*1.35*(1.0 + u_treb*0.8));
+        }
+      }
+      // Background layer: when a camera/photo backdrop is active, the feed is
+      // the full-viewport base layer and the fractal is a translucent color
+      // film over it: col = mix(bg, col, u_film). The film factor rides the
+      // u_bgMix ease (0..1) so toggles fade instead of popping. u_bgMix == 0
+      // skips the fetch entirely — the layer costs nothing when off, and the
+      // off state renders pixel-identical to the film feature never existing.
+      // Aspect-correct cover mapping: sample the centered crop of the
+      // backdrop whose aspect matches the viewport, so a photo or camera
+      // frame of ANY aspect renders undistorted and viewport-filling
+      // (cropped, never stretched, never letterboxed). u_res is set live
+      // every frame, so rotate/resize just works; u_bgAspect comes from
+      // BG_W/BG_H, never hardcoded.
+      if(u_bgMix > 0.001){
+        float viewAspect = u_res.x/u_res.y;
+        vec2 uv = vec2(gl_FragCoord.x/u_res.x, 1.0 - gl_FragCoord.y/u_res.y);
+        vec2 span = vec2(1.0);
+        if(viewAspect > u_bgAspect) span = vec2(1.0, u_bgAspect/viewAspect);
+        else span = vec2(viewAspect/u_bgAspect, 1.0);
+        vec3 bg = texture2D(u_bg, (uv - 0.5)*span + 0.5).rgb;
+        col = mix(bg, col, mix(1.0, u_film, u_bgMix));
+      }
+      return col;
+    }
+
+    void main(){
+      vec2 frag = gl_FragCoord.xy;
+      float minDim = min(u_res.x, u_res.y);
+      vec2 p = vec2(frag.x-0.5*u_res.x, frag.y-0.5*u_res.y)/minDim;
+
+      // Both renderer domains compute into their own (iter, m2); u_blend
+      // crossfades the two shaded outputs over 3 frames so the domain switch
+      // is never a single-frame pop. Outside the switch only one side runs.
+      float iterC = 0.0, m2C = 0.0;
+      float iterP = 0.0, m2P = 0.0;
+      if(u_blend < 0.999){
+        // classic float32 path: absolute coordinates (shallow zoom / fallback)
+        vec2 c = u_center + p*u_scale;
+        vec2 z = vec2(0.0);
+        for(int i=0;i<8192;i++){
+          if(float(i) >= u_iter) break;
+          z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+          m2C = dot(z,z);
+          if(m2C > 4.0) break;
+          iterC += 1.0;
+        }
+      }
+      if(u_blend > 0.001){
+        // Perturbation path with Zhuoran (2021) in-orbit rebase: when the
+        // pixel's orbit has diverged from the reference's (|z| < |d|) or the
+        // reference is exhausted, the delta restarts at the full z against
+        // the SAME orbit from iteration 0. Mathematically exact, no new
+        // reference: this is what makes re-anchoring pop-free, and it keeps
+        // every pixel correct while the CPU rebuilds the orbit in the
+        // background. It also retires the old "dc is small" assumption: far
+        // pixels self-convert to well-conditioned near-direct iteration.
+        vec2 dc = u_delta + p*u_scale;
+        vec2 d = vec2(0.0);
+        vec2 zr_prev = vec2(0.0); // R_0, the reference before its first update
+        float refF = 1.0;         // next fetched texel is R_{refIdx+1}
+        for(int i=0;i<8192;i++){
+          if(float(i) >= u_iter) break;
+          vec2 zr = texture2D(u_orbit,
+            vec2((mod(refF,u_orbitW)+0.5)/u_orbitW, (floor(refF/u_orbitW)+0.5)/u_orbitH)).xy;
+          // D_{i+1} = 2*R_i*D_i + D_i^2 + dc  (uses the pre-update reference)
+          d = vec2(2.0*(zr_prev.x*d.x - zr_prev.y*d.y) + d.x*d.x - d.y*d.y + dc.x,
+                   2.0*(zr_prev.x*d.y + zr_prev.y*d.x) + 2.0*d.x*d.y + dc.y);
+          d = clamp(d, vec2(-1e10), vec2(1e10)); // inf/NaN guard, never hit in practice
+          vec2 z = zr + d; // R_{i+1} + D_{i+1} = Z_{i+1}: exactly what the classic path tests
+          m2P = dot(z,z);
+          if(m2P > 4.0) break;
+          if(m2P < dot(d,d) || refF >= u_orbitLen){
+            d = z;                // delta := full z ...
+            zr_prev = vec2(0.0);  // ... against the same orbit from iteration 0
+            refF = 1.0;
+          } else {
+            zr_prev = zr;
+            refF += 1.0;
+          }
+          iterP += 1.0;
+        }
+      }
+
+      // Style crossfade: when u_xfade is mid-flight both style paths are
+      // shaded and mixed; at rest only one side runs, so the crossfade costs
+      // nothing outside the ~0.2 s transition.
+      vec3 col;
+      if(u_xfade < 0.001){
+        col = mix(shadeStyle(u_styleA, iterC, m2C, step(4.0, m2C)),
+                  shadeStyle(u_styleA, iterP, m2P, step(4.0, m2P)), u_blend);
+      } else if(u_xfade > 0.999){
+        col = mix(shadeStyle(u_styleB, iterC, m2C, step(4.0, m2C)),
+                  shadeStyle(u_styleB, iterP, m2P, step(4.0, m2P)), u_blend);
+      } else {
+        vec3 colA = mix(shadeStyle(u_styleA, iterC, m2C, step(4.0, m2C)),
+                        shadeStyle(u_styleA, iterP, m2P, step(4.0, m2P)), u_blend);
+        vec3 colB = mix(shadeStyle(u_styleB, iterC, m2C, step(4.0, m2C)),
+                        shadeStyle(u_styleB, iterP, m2P, step(4.0, m2P)), u_blend);
+        col = mix(colA, colB, u_xfade);
+      }
+      float vig = smoothstep(1.15, 0.30, length(p));
+      col *= mix(0.50, 1.0, vig);
+      col += (hash(frag)-0.5)*0.018;
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  let prog = null, buf = null, aPos = 0, orbitTex = null;
+  let U = {};
+  let palSnap = true; // force palette re-upload (also after a context restore)
+
+  function compileShader(type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+      const log = gl.getShaderInfoLog(s) || 'unknown shader error';
+      throw new Error('Shader compile failed: ' + log);
+    }
+    return s;
+  }
+  // initGL builds every GL object. Called once at startup and again after a
+  // context restore (all GL objects are invalid then); CPU-side state
+  // (orbitData, palettes, view) survives, so the fractal resumes seamlessly.
+  function initGL(){
+    prog = gl.createProgram();
+    gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, VSRC));
+    gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, FSRC));
+    gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS))
+      throw new Error('Program link failed: ' + (gl.getProgramInfoLog(prog) || 'unknown error'));
+    gl.useProgram(prog);
+
+    buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+    aPos = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    U = {};
+    for(const n of ['u_res','u_center','u_delta','u_scale','u_dye','u_iter','u_flow',
+                    'u_blend','u_orbitLen','u_orbit','u_orbitW','u_orbitH',
+                    'u_palA','u_palB','u_palC','u_palD','u_styleA','u_styleB','u_xfade',
+                    'u_bg','u_bgMix','u_film','u_bgAspect','u_treb']){
+      U[n] = gl.getUniformLocation(prog, n);
+    }
+
+    if(floatTexExt){
+      orbitTex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, orbitTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.uniform1i(U.u_orbit, 0);
+      if(orbitLen > 0)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ORBIT_W, ORBIT_H, 0, gl.RGBA, gl.FLOAT, orbitData);
+    }
+    // Backdrop texture (unit 1): pre-sized to the downscaled layer size and
+    // filled with uninitialized data; every upload is a texSubImage2D of the
+    // 480x270 2D canvas — ~518 KB per upload, every 4th frame at most. u_bgMix
+    // stays 0 until a layer is active, so the shader never samples this.
+    bgTex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, bgTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, BG_W, BG_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.uniform1i(U.u_bg, 1);
+    gl.activeTexture(gl.TEXTURE0);
+    if(bgMode !== 'off' && bgCanvas) uploadBgCanvas(); // context-restore refill
+    gl.uniform1f(U.u_orbitW, ORBIT_W);
+    gl.uniform1f(U.u_orbitH, ORBIT_H);
+    gl.uniform1f(U.u_styleA, styleA);
+    gl.uniform1f(U.u_styleB, styleB);
+    gl.uniform1f(U.u_xfade, xfade);
+    palSnap = true;
+  }
+
+  // ---------- palettes & styles ----------
+  const PALETTES = [
+    { name: 'Tie-Dye',      colors: [[0.62,0.28,0.95],[0.10,0.75,0.90],[1.00,0.45,0.75],[1.00,0.80,0.25]] },
+    { name: 'Neon Nights',  colors: [[1.00,0.08,0.85],[0.00,1.00,1.00],[0.45,1.00,0.10],[0.25,0.25,1.00]] },
+    { name: 'Sunset Freak', colors: [[0.35,0.05,0.45],[1.00,0.15,0.50],[1.00,0.50,0.10],[1.00,0.85,0.30]] },
+    { name: 'Deep Ocean',   colors: [[0.02,0.10,0.40],[0.00,0.70,0.80],[0.30,1.00,0.90],[0.50,0.20,1.00]] },
+    { name: 'Candy Trip',   colors: [[1.00,0.40,0.80],[1.00,0.95,0.40],[0.40,1.00,0.70],[0.70,0.50,1.00]] },
+    { name: 'Inferno',      colors: [[0.50,0.02,0.02],[1.00,0.10,0.00],[1.00,0.50,0.00],[1.00,0.90,0.40]] },
+    { name: 'Ultraviolet',  colors: [[0.15,0.00,0.50],[0.60,0.10,1.00],[0.90,0.80,1.00],[0.20,0.90,1.00]] },
+    { name: 'Pastel Dream', colors: [[1.00,0.70,0.80],[1.00,0.85,0.70],[0.60,0.85,1.00],[0.80,0.70,1.00]] }
+  ];
+  const STYLES = [
+    { name: 'Flow Bands',    desc: 'Soft dye bands flowing along the escape contours' },
+    { name: 'Contour Lines', desc: 'Electric topographic lines over the dye wash' },
+    { name: 'Nebula Glow',   desc: 'A soft, luminous haze for a dreamier look' }
+  ];
+
+  let palIdx = 0, styleIdx = 0, customPalId = '';
+  // Settings live in the shared KodaPalettes store (localStorage only,
+  // versioned, namespaced) so palettes built here appear in the other 2D
+  // apps. One-time migration from the legacy 'mandel-look' key.
+  const store = KodaPalettes.createSettingsStore('mandelbrot', {
+    style: 0, pal: 0, customPalId: '', sens: 1, film: 0.65
+  });
+  (function migrateLook(){
+    let legacy = null;
+    try { legacy = JSON.parse(localStorage.getItem('mandel-look') || 'null'); }
+    catch (_) { legacy = null; }
+    store.load();
+    if(legacy && typeof legacy === 'object'){
+      const patch = {};
+      if(Number.isInteger(legacy.pal) && legacy.pal >= 0 && legacy.pal < PALETTES.length) patch.pal = legacy.pal;
+      if(Number.isInteger(legacy.style) && legacy.style >= 0 && legacy.style < STYLES.length) patch.style = legacy.style;
+      if(Object.keys(patch).length) store.setAll(patch);
+      try { localStorage.removeItem('mandel-look'); } catch (_) { /* ignore */ }
+    }
+    const s = store.getState();
+    styleIdx = s.style; palIdx = s.pal; customPalId = s.customPalId;
+  })();
+  function saveLook(){
+    store.setAll({ style: styleIdx, pal: palIdx, customPalId });
+  }
+
+  // ---------- shared palette library ----------
+  // The 8 hand-built palettes are registered in the shared cross-app
+  // library as 7-stop hex sets (stops 0/2/4/6 are the exact native colors,
+  // the odd stops are blends, for a richer swatch). Selecting a built-in
+  // keeps its native float colors so the default view stays pixel-identical
+  // to the pre-palette build; user palettes sample 4 of the 7 stops onto
+  // the shader's 4 palette uniforms.
+  const _hexOf = c => KodaPalettes.color.rgbToHex(c[0], c[1], c[2]);
+  const _midHex = (a, b) => {
+    const ra = KodaPalettes.color.hexToRgb(a), rb = KodaPalettes.color.hexToRgb(b);
+    return KodaPalettes.color.rgbToHex((ra[0]+rb[0])/2, (ra[1]+rb[1])/2, (ra[2]+rb[2])/2);
+  };
+  const PAL_BUILTINS = {};
+  PALETTES.forEach((p, i) => {
+    const h = p.colors.map(_hexOf);
+    PAL_BUILTINS['builtin-' + i] = {
+      name: p.name,
+      colors: [h[0], _midHex(h[0],h[1]), h[1], _midHex(h[1],h[2]), h[2], _midHex(h[2],h[3]), h[3]]
+    };
+  });
+  const paletteLib = KodaPalettes.createPaletteLibrary(PAL_BUILTINS);
+  const BUILTIN_INDEX = {};
+  PALETTES.forEach((p, i) => { BUILTIN_INDEX['builtin-' + i] = i; });
+  let workingColors = null; // transient 7-hex stops while the editor previews
+
+  function _sample7(hex7){
+    const f = i => { const v = KodaPalettes.color.hexToRgb(hex7[i]); return [v[0], v[1], v[2]]; };
+    return [f(0), f(2), f(4), f(6)];
+  }
+  function activePaletteEntry(){
+    if(workingColors) return { name: 'Preview', colors: workingColors, builtin: false, preview: true };
+    if(customPalId){
+      const e = paletteLib.get(customPalId);
+      if(e && !e.builtin) return e;
+    }
+    return null;
+  }
+  function activePaletteColors(){
+    const e = activePaletteEntry();
+    return e ? _sample7(e.colors) : PALETTES[palIdx].colors;
+  }
+  function activePaletteName(){
+    const e = activePaletteEntry();
+    return e ? e.name : PALETTES[palIdx].name;
+  }
+  function setPaletteId(id){
+    const entry = paletteLib.get(id);
+    if(!entry) return;
+    if(entry.builtin){
+      palIdx = BUILTIN_INDEX[id] || 0;
+      customPalId = '';
+    } else {
+      customPalId = id;
+    }
+    workingColors = null;
+    applyPalette(); saveLook(); updatePalRow();
+  }
+
+  // Palette changes crossfade over ~0.2 s: the uniforms ease toward their
+  // targets every frame instead of hard-flipping. Reduced motion snaps.
+  const palCur = new Float32Array(12);
+  const palTarget = new Float32Array(12);
+  let palSettled = true;
+  function uploadPalette(){
+    gl.uniform3f(U.u_palA, palCur[0], palCur[1], palCur[2]);
+    gl.uniform3f(U.u_palB, palCur[3], palCur[4], palCur[5]);
+    gl.uniform3f(U.u_palC, palCur[6], palCur[7], palCur[8]);
+    gl.uniform3f(U.u_palD, palCur[9], palCur[10], palCur[11]);
+  }
+  function applyPalette(){
+    const cols = activePaletteColors();
+    for(let i=0;i<4;i++){
+      palTarget[i*3] = cols[i][0]; palTarget[i*3+1] = cols[i][1]; palTarget[i*3+2] = cols[i][2];
+    }
+    if(REDUCED || palSnap){
+      for(let i=0;i<12;i++) palCur[i] = palTarget[i];
+      palSettled = true; palSnap = false;
+      uploadPalette();
+    } else {
+      palSettled = false;
+    }
+  }
+  function pumpPalette(dt){
+    if(palSettled) return;
+    const k = 1 - Math.exp(-dt*12);
+    let maxd = 0;
+    for(let i=0;i<12;i++){
+      const d = palTarget[i]-palCur[i];
+      palCur[i] += d*k;
+      if(Math.abs(d) > maxd) maxd = Math.abs(d);
+    }
+    uploadPalette();
+    if(maxd < 0.002){
+      for(let i=0;i<12;i++) palCur[i] = palTarget[i];
+      uploadPalette();
+      palSettled = true;
+    }
+  }
+
+  // Style changes crossfade in the shader (u_styleA -> u_styleB via u_xfade)
+  // over ~0.2 s; at rest only one style path is shaded. Reduced motion snaps.
+  let styleA = styleIdx, styleB = styleIdx, xfade = 1, xfadeTarget = 1;
+  function setStyle(i){
+    if(i === styleIdx) return;
+    styleA = (xfadeTarget === 1) ? styleB : styleA;
+    styleB = i; styleIdx = i;
+    if(REDUCED){ styleA = styleB; xfade = xfadeTarget = 1; }
+    else { xfade = 0; xfadeTarget = 1; }
+    saveLook(); updateStyleSeg();
+    toast('Style: ' + STYLES[i].name);
+    markInteract();
+  }
+  function pumpStyleXfade(dt){
+    if(xfade === xfadeTarget) return;
+    xfade += (xfadeTarget-xfade)*(1 - Math.exp(-dt*14));
+    if(Math.abs(xfadeTarget-xfade) < 0.004){
+      xfade = xfadeTarget;
+      if(xfade === 1) styleA = styleB; // collapse: one path again
+    }
+  }
+
+  // ---------- state ----------
+  const S0 = 2.6;                // initial scale: complex units across the short side
+  const C0x = -0.75, C0y = 0;    // initial center: the classic full-set view
+
+  // Perturbation needs float textures for the reference orbit. Without them we
+  // fall back to the classic float32 path (and its ~50,000x precision floor).
+  const floatTexExt = gl.getExtension('OES_texture_float');
+  // Gating (2026-09-21): the perturbation renderer + reference-orbit machinery
+  // engage only past PERT_DEPTH. float32 is provably exact at shallower zooms
+  // (measured classic-vs-perturbation divergence starts ~1e5; 5x safety margin),
+  // and firing the rebase on every shallow tap-dive produced noisy banding on
+  // real GPUs whenever the tap target's orbit escapes: the reference tail is
+  // then capped garbage and late-escaping pixels get chaotic iteration counts.
+  const PERT_DEPTH = 20000;
+  let forceClassic = false;   // debug override via __mandel.setDirect(true)
+  let pertActive = false;     // per-frame: perturbation currently engaged
+  let pertLatch = false;      // tapDive latched perturbation for its whole duration
+  let blend = 0, blendTarget = 0, blendFrom = 0, blendT = 0; // D3: renderer-domain crossfade 0..1
+  const MIN_SCALE = floatTexExt ? S0*1e-30 : S0/50000;
+
+  let center = { x: ddFromNum(C0x), y: ddFromNum(C0y) }; // double-double, exact to ~1e-30
+  let scale = S0;                                       // float64 scalar, plenty
+  let dyeBase = Math.random();    // every visit opens on a fresh hue rotation
+  let flowSec = 0;              // band-flow clock: color streams along the escape bands
+  let timeSec = 0;
+  let paused = false;
+  let lastInteract = -10;
+  let maxIter = 170;
+
+  // ---------- perturbation: reference orbit ----------
+  const ORBIT_W = 2048, ORBIT_H = 4, ORBIT_MAX = ORBIT_W*ORBIT_H; // 8192
+  const orbitData = new Float32Array(ORBIT_MAX*4);
+  let orbitLen = 0;
+  let refC = { x: ddFromNum(C0x), y: ddFromNum(C0y) }; // anchor of the reference orbit
+
+  // Anchor the reference orbit at point p (double-double). The orbit is
+  // computed in double-double on the CPU; only its float32-rounded values
+  // reach the shader, which is all the delta math needs.
+  //
+  // Phase A scheduling (D2/D5/D6): rebaseAt() NEVER builds synchronously.
+  // It queues a request; the build is chunked across animation frames
+  // (REBASE_CHUNK double-double iterations per frame), so no frame ever
+  // stalls on the multi-thousand-iteration CPU orbit. Drift re-anchoring uses
+  // a hysteresis band (fire past 0.75*scale, re-arm below 0.25*scale) plus a
+  // 400 ms debounce, so a gesture cannot trigger rebuilds on consecutive
+  // frames. The orbit is pre-sized at 2x the iteration budget (+256 texels of
+  // headroom) so budget-driven rebuilds do not fire mid-dive. With Zhuoran
+  // in-orbit rebase in the shader, frames rendered while a rebuild is in
+  // flight stay exact: the anchor point is a quality choice, not a
+  // correctness requirement.
+  let rebaseJob = null;      // in-flight chunked build {p, n, need, z}
+  let rebaseQueued = null;   // latest coalesced request awaiting the debounce window
+  let rebaseNotBefore = 0;   // earliest timestamp a build may start
+  let driftArmed = true;     // hysteresis arm for drift re-anchoring
+  let texC = { x: ddFromNum(C0x), y: ddFromNum(C0y) }; // anchor of the BOUND orbit texture
+  const REBASE_DEBOUNCE_MS = 400;
+  const REBASE_CHUNK = 1024;
+
+  function requestRebase(p, iterHint){
+    if(!floatTexExt || forceClassic) return;
+    rebaseQueued = { p: { x: [p.x[0], p.x[1]], y: [p.y[0], p.y[1]] }, iterHint: iterHint || 0 };
+    refC = { x: [p.x[0], p.x[1]], y: [p.y[0], p.y[1]] }; // drift measured vs the in-flight anchor
+    driftArmed = false;
+    if(window.__mandel) window.__mandel._rebaseRequests = (window.__mandel._rebaseRequests|0)+1;
+  }
+  function rebaseAt(p, iterHint){ requestRebase(p, iterHint); } // deferred; see pumpRebaseJob
+  function rebaseNow(p, iterHint){ // immediate build: debug hooks + init only, never on a tween frame
+    if(!floatTexExt || forceClassic) return;
+    if(window.__mandel && tweens.length > 0)
+      window.__mandel._rebaseSyncTween = (window.__mandel._rebaseSyncTween|0)+1;
+    refC = { x: [p.x[0], p.x[1]], y: [p.y[0], p.y[1]] };
+    const m = Math.max(maxIter, iterHint || 0);
+    const need = Math.min(ORBIT_MAX, Math.max(256, Math.ceil(m*2) + 256));
+    const t0 = performance.now();
+    let z = { x: [0,0], y: [0,0] };
+    let n = 0;
+    for(; n < need; n++){
+      orbitData[n*4]   = z.x[0];
+      orbitData[n*4+1] = z.y[0];
+      z = cddSqrAdd(z, refC);
+      // keep the tail finite past reference escape: cap magnitude at 1e10.
+      // With Zhuoran in-orbit rebase in the shader, pixels whose orbit
+      // diverges from an escaping reference self-correct against the same
+      // orbit long before the tail matters.
+      const m2 = z.x[0]*z.x[0] + z.y[0]*z.y[0];
+      if(m2 > 1e20){
+        const s = 1e10/Math.sqrt(m2);
+        z = { x: [z.x[0]*s, 0], y: [z.y[0]*s, 0] };
+      }
+    }
+    orbitLen = need;
+    texC = { x: [refC.x[0], refC.x[1]], y: [refC.y[0], refC.y[1]] };
+    gl.bindTexture(gl.TEXTURE_2D, orbitTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ORBIT_W, ORBIT_H, 0, gl.RGBA, gl.FLOAT, orbitData);
+    window.__mandel && (window.__mandel._lastRebaseMs = performance.now()-t0);
+  }
+  function pumpRebaseJob(){
+    const job = rebaseJob, t0 = performance.now();
+    let n = job.n, z = job.z;
+    const stop = Math.min(job.need, n + REBASE_CHUNK);
+    for(; n < stop; n++){
+      orbitData[n*4]   = z.x[0];
+      orbitData[n*4+1] = z.y[0];
+      z = cddSqrAdd(z, job.p);
+      const m2 = z.x[0]*z.x[0] + z.y[0]*z.y[0];
+      if(m2 > 1e20){
+        const s = 1e10/Math.sqrt(m2);
+        z = { x: [z.x[0]*s, 0], y: [z.y[0]*s, 0] };
+      }
+    }
+    job.n = n; job.z = z;
+    const ms = performance.now()-t0;
+    if(window.__mandel && ms > window.__mandel._rebaseChunkMaxMs)
+      window.__mandel._rebaseChunkMaxMs = ms;
+    if(n >= job.need){
+      orbitLen = job.need;
+      texC = { x: [job.p.x[0], job.p.x[1]], y: [job.p.y[0], job.p.y[1]] };
+      gl.bindTexture(gl.TEXTURE_2D, orbitTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ORBIT_W, ORBIT_H, 0, gl.RGBA, gl.FLOAT, orbitData);
+      rebaseJob = null;
+      rebaseNotBefore = performance.now() + REBASE_DEBOUNCE_MS;
+    }
+  }
+
+  const tweens = [];
+  function tween(dur, apply, done, dive){
+    // D4: non-dive tweens (reset / double-tap surface) freeze the renderer
+    // domain for their whole duration; the domain is decided at tween start.
+    tweens.push({ t: 0, dur, apply, done, dive: !!dive,
+                  domainLock: !dive, domainAtStart: blendTarget });
+  }
+  const easeInOut = t => t < 0.5 ? 2*t*t : 1-Math.pow(-2*t+2, 2)/2;
+
+  // ---------- Phase B: adaptive quality tiers + thermal governor ----------
+  // Per-frame cost is pixels x iterations. While the user is interacting the
+  // view is in motion, so detail beyond perception is wasted heat: the
+  // interaction tier renders smaller and iterates less, then eases back to
+  // the governor level on settle (never a hard cut). The governor watches
+  // real frame times and steps the sustained budget down in discrete levels
+  // only under persistent pressure, restoring it after persistent headroom.
+  // The ambient band-flow keeps its character throughout: nothing here
+  // freezes the art to save power.
+  const GOV = [
+    { s: 1.00, i: 1.00 },
+    { s: 0.88, i: 0.92 },
+    { s: 0.75, i: 0.82 },
+    { s: 0.62, i: 0.70 }
+  ];
+  // Phase C: decisively cheaper interaction tier — px.iters drops ~49% vs
+  // Phase B (0.50^2*0.55 vs 0.62^2*0.70). Dive kinematics untouched; only
+  // render quality moves, and it always eases (never a hard cut).
+  const TIER_INTERACT = { s: 0.50, i: 0.55 };
+  const MP_BUDGET = 4000000; // 4-megapixel render budget (Kaleidoscope bar)
+  let govLevel = 0;
+  let scaleCur = 1, iterMulCur = 1; // eased toward their targets every frame
+  let iterEff = 170;
+  let lastRaw = performance.now();
+  let overN = 0, headN = 0;
+
+  function resize(){
+    const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+    if(cssW < 2 || cssH < 2) return;
+    const dpr0 = Math.min(window.devicePixelRatio || 1, 2);
+    let dpr = dpr0;
+    const native = cssW*dpr0*cssH*dpr0;
+    if(native > MP_BUDGET) dpr = dpr0*Math.sqrt(MP_BUDGET/native); // the MP budget wins on huge screens
+    const sq = Math.max(0.2, Math.round(scaleCur*20)/20); // quantize: fewer reallocations mid-ease
+    const w = Math.max(2, Math.round(cssW*dpr*sq));
+    const h = Math.max(2, Math.round(cssH*dpr*sq));
+    if(canvas.width !== w || canvas.height !== h){
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+  }
+  window.addEventListener('resize', resize);
+
+  function pumpQuality(now, dt){
+    const rawMs = now - lastRaw;
+    lastRaw = now;
+    // thermal governor: sustained frame-time pressure steps the budget down
+    // a level; sustained headroom steps it back up. Discrete levels only.
+    if(rawMs > 24){ overN++; headN = 0; }
+    else if(rawMs < 14){ headN++; overN = 0; }
+    else { if(overN > 0) overN--; if(headN > 0) headN--; }
+    if(overN > 45 && govLevel < 3){ govLevel++; overN = 0; headN = 0; }
+    if(headN > 600 && govLevel > 0){ govLevel--; headN = 0; overN = 0; }
+
+    const interacting = tweens.length > 0 || diveId !== null || panning ||
+                        pointers.size >= 2 || (timeSec - lastInteract < 0.3);
+    const sTarget = GOV[govLevel].s * (interacting ? TIER_INTERACT.s : 1);
+    const iTarget = GOV[govLevel].i * (interacting ? TIER_INTERACT.i : 1);
+    // Phase C: fast attack onto cheaper tiers (heat drops within ~0.2 s of
+    // first touch), gentle release back up (~0.8 s, no pop). Frame-rate-
+    // independent exponential easing, Kaleidoscope-bar style.
+    const kDown = 1 - Math.exp(-dt*12);
+    const kUp = 1 - Math.exp(-dt*3.5);
+    const easeQ = (cur, target) => {
+      const v = cur + (target-cur)*(target < cur ? kDown : kUp);
+      return Math.abs(target-v) < 0.004 ? target : v;
+    };
+    scaleCur = easeQ(scaleCur, sTarget);
+    iterMulCur = easeQ(iterMulCur, iTarget);
+  }
+
+  // ---------- coordinate helpers (y-up complex offsets, double-double) ----------
+  function cssSize(){
+    const r = canvas.getBoundingClientRect();
+    return { w: r.width, h: r.height, min: Math.min(r.width, r.height) };
+  }
+  function touchComplex(cx, cy){
+    const r = canvas.getBoundingClientRect();
+    const min = Math.min(r.width, r.height);
+    const ox = (cx - r.left - r.width/2) / min * scale;
+    const oy = (r.top + r.height/2 - cy) / min * scale;
+    return { x: ddAdd(center.x, ddFromNum(ox)), y: ddAdd(center.y, ddFromNum(oy)) };
+  }
+
+  // ---------- toast ----------
+  let toastTimer = null;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1300);
+  }
+
+  // ---------- interaction ----------
+  const pointers = new Map();   // pointerId -> {x, y}
+  let diveId = null;            // pointer currently diving
+  let diveTarget = null;        // fixed fractal coordinate captured when the dive engages
+  let diveArmedAt = 0;
+  let downAt = 0, downX = 0, downY = 0;
+  let panning = false;
+  let pinchPrev = null;
+  let lastTapAt = 0, lastTapX = 0, lastTapY = 0;
+  let pendingTap = null;        // single-tap waiting out the double-tap window
+  let interacted = false;
+
+  // Phase 2.5 — collapsible gesture help: expanded by default with the
+  // useful gesture text; the small ? button collapses it to a single 44px
+  // circle and re-expands it. The collapsed choice persists in localStorage
+  // (koda-mandelbrot-hint-collapsed), so a returning visitor is never
+  // nagged — a judgment call: help preferences are personal and stable, and
+  // re-asking every visit would fight the "always out of the way" mandate.
+  // The expanded text still rests quiet and pops loud for ~6s / first read.
+  const HINT_KEY = 'koda-mandelbrot-hint-collapsed';
+  const hintToggle = document.getElementById('hintToggle');
+  let hintTimer = null;
+  function setHintLoud(loud){
+    hint.classList.toggle('loud', loud);
+    if(hintTimer){ clearTimeout(hintTimer); hintTimer = null; }
+    if(loud) hintTimer = setTimeout(() => setHintLoud(false), 6000);
+  }
+  function setHintCollapsed(collapsed, save){
+    hint.classList.toggle('collapsed', collapsed);
+    hintToggle.setAttribute('aria-label', collapsed ? 'Show gesture help' : 'Hide gesture help');
+    hintToggle.setAttribute('aria-pressed', String(collapsed));
+    if(save){ try { localStorage.setItem(HINT_KEY, collapsed ? '1' : '0'); } catch(_){} }
+    setHintLoud(!collapsed); // re-expanded: readable again, then settles
+  }
+  function readHintCollapsed(){
+    try { return localStorage.getItem(HINT_KEY) === '1'; } catch(_){ return false; }
+  }
+  hintToggle.addEventListener('click', e => {
+    e.stopPropagation();
+    setHintCollapsed(!hint.classList.contains('collapsed'), true);
+  });
+  setHintCollapsed(readHintCollapsed(), false); // start prominent so first-time users read it, then settle quiet
+
+  function markInteract(){
+    lastInteract = timeSec;
+    if(!interacted){
+      interacted = true;
+      setHintLoud(false);
+    }
+  }
+
+  function tapDive(x, y){
+    const target = touchComplex(x, y);
+    // D1: the dive interpolates log(scale) with ease-out on the log-rate:
+    // constant apparent speed that settles gently into the target, instead
+    // of the old linear-in-scale tween that felt fast-then-stuck and exposed
+    // every rebase boundary. Duration stays 2.4 s; the destination is exact.
+    const endDepth = (S0/scale)*14;
+    const endIter = Math.min(8192, 170 + 55*Math.log2(Math.max(1, endDepth)));
+    // Only engage the perturbation machinery when this dive actually needs it
+    // (end depth past the float32 wall). Shallow dives stay on the classic
+    // path: no rebase, no reference-orbit noise. The destination-anchored
+    // orbit is queued (chunked across frames, never blocking the tween's
+    // first frame); the renderer crossfades in when it lands. Gate semantics
+    // (PERT_DEPTH, pertLatch) are unchanged.
+    if(floatTexExt && !forceClassic && endDepth > PERT_DEPTH){
+      requestRebase(target, endIter); // anchor the orbit at the interesting point
+      pertLatch = true;
+    }
+    const fc = { x: [center.x[0], center.x[1]], y: [center.y[0], center.y[1]] };
+    const fs = scale;
+    const to = Math.max(MIN_SCALE, fs/14);
+    const logFs = Math.log(fs), logTo = Math.log(to);
+    diveId = null; diveTarget = null; panning = false;
+    tween(2.4, k => {
+      const e = 1-Math.pow(1-k, 3); // ease-out cubic on the log-rate
+      center.x = ddLerp(fc.x, target.x, e);
+      center.y = ddLerp(fc.y, target.y, e);
+      scale = Math.exp(logFs + (logTo-logFs)*e);
+    }, null, true);
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* synthetic or edge-case pointers */ }
+    if(pendingTap){ clearTimeout(pendingTap.timer); pendingTap = null; }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    markInteract();
+    tweens.length = 0;
+
+    const now = performance.now();
+    if(now - lastTapAt < 320 && Math.hypot(e.clientX-lastTapX, e.clientY-lastTapY) < 30 && pointers.size === 1){
+      // double-tap: surface (zoom out), keep center
+      lastTapAt = 0;
+      diveId = null; diveTarget = null; panning = false;
+      const from = scale, to = Math.min(MAX_SCALE, scale*5);
+      tween(0.6, k => { scale = from + (to-from)*easeInOut(k); });
+      pointers.delete(e.pointerId);
+      return;
+    }
+    lastTapAt = now; lastTapX = e.clientX; lastTapY = e.clientY;
+
+    if(pointers.size === 1){
+      downAt = now; downX = e.clientX; downY = e.clientY;
+      diveId = e.pointerId;
+      diveTarget = null;   // a fresh touch captures a fresh target; never reuse a stale one
+      diveArmedAt = now + 200;   // hold still briefly, then the dive engages
+      panning = false;
+    } else if(pointers.size === 2){
+      diveId = null; diveTarget = null; panning = false;
+      const pts = [...pointers.values()];
+      pinchPrev = {
+        d: Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y),
+        mx: (pts[0].x+pts[1].x)/2, my: (pts[0].y+pts[1].y)/2
+      };
+    } else {
+      diveId = null; diveTarget = null; panning = false; pinchPrev = null;
+    }
+  });
+
+  canvas.addEventListener('pointermove', e => {
+    const pt = pointers.get(e.pointerId);
+    if(!pt) return;
+    const dx = e.clientX - pt.x, dy = e.clientY - pt.y;
+    pt.x = e.clientX; pt.y = e.clientY;
+    markInteract();
+
+    if(pointers.size === 2){
+      const pts = [...pointers.values()];
+      const d = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+      const mx = (pts[0].x+pts[1].x)/2, my = (pts[0].y+pts[1].y)/2;
+      if(pinchPrev && pinchPrev.d > 0 && d > 0){
+        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * pinchPrev.d / d));
+        const { min } = cssSize();
+        center.x = ddSub(center.x, ddFromNum((mx - pinchPrev.mx)/min*scale));
+        center.y = ddAdd(center.y, ddFromNum((my - pinchPrev.my)/min*scale));
+      }
+      pinchPrev = { d, mx, my };
+      return;
+    }
+
+    if(e.pointerId === diveId && !panning){
+      if(Math.hypot(e.clientX-downX, e.clientY-downY) > 12){
+        panning = true;   // it was a drag, not a hold
+        diveId = null; diveTarget = null;
+      }
+    }
+    if(panning){
+      const { min } = cssSize();
+      center.x = ddSub(center.x, ddFromNum(dx/min*scale));
+      center.y = ddAdd(center.y, ddFromNum(dy/min*scale)); // client y is down-positive; complex y is up
+    }
+  });
+
+  function endPointer(e){
+    const pt = pointers.get(e.pointerId);
+    const tx = e.clientX, ty = e.clientY;
+    const quickTap = pt && pointers.size === 1 && !panning
+      && (performance.now()-downAt < 350)
+      && Math.hypot(tx-downX, ty-downY) < 12;
+    pointers.delete(e.pointerId);
+    if(e.pointerId === diveId){ diveId = null; diveTarget = null; }
+    if(pointers.size < 2) pinchPrev = null;
+    if(pointers.size === 0){ panning = false; diveTarget = null; }
+    if(quickTap){
+      // wait out the double-tap window; a second tap cancels this
+      pendingTap = {
+        timer: setTimeout(() => { pendingTap = null; tapDive(tx, ty); }, 330)
+      };
+    }
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  // ---------- drawer: appearance controls ----------
+  let drawerOpen = false;
+  function setDrawer(open){
+    drawerOpen = open;
+    toolTab.setAttribute('aria-expanded', String(open));
+    toolTab.setAttribute('aria-label', open ? 'Close controls' : 'Open controls');
+    drawerBody.setAttribute('aria-hidden', String(!open));
+    drawer.classList.toggle('open', open);
+    scrim.classList.toggle('open', open);
+    if(open){
+      drawerBody.removeAttribute('inert');
+      drawer.focus({ preventScroll: true });
+    } else {
+      drawerBody.setAttribute('inert', '');
+      toolTab.focus({ preventScroll: true });
+    }
+  }
+  toolTab.addEventListener('click', () => setDrawer(!drawerOpen));
+  scrim.addEventListener('click', () => setDrawer(false));
+  // Phase 2.5 — overlaying browser chrome (in-app browsers): measure how much
+  // of the layout viewport the visual viewport occludes at the bottom/top and
+  // lift the drawer / drop the topbar by that amount, so the hide tab and the
+  // drawer heading stay reachable and clear. Exposed as
+  // window.__syncChromeOffset for the headless harness (visualViewport can't
+  // be resized under file://).
+  function syncChromeOffset(vv){
+    const v = vv || window.visualViewport;
+    let bottom = 0, top = 0;
+    if(v){
+      bottom = Math.max(0, window.innerHeight - v.height - v.offsetTop);
+      top = Math.max(0, v.offsetTop);
+    }
+    const root = document.documentElement.style;
+    root.setProperty('--vv-bottom', Math.round(bottom) + 'px');
+    root.setProperty('--vv-top', Math.round(top) + 'px');
+  }
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', () => syncChromeOffset());
+    window.visualViewport.addEventListener('scroll', () => syncChromeOffset());
+  }
+  window.addEventListener('resize', () => syncChromeOffset());
+  window.__syncChromeOffset = syncChromeOffset;
+  syncChromeOffset();
+  // The fixed site header's rendered height varies with device font metrics
+  // (the old hardcoded 60px left top-row control circles sliding under it
+  // on iPhone, their tops cut flat). Measure it so .stage starts exactly
+  // below the header. Exposed for the headless harness.
+  function syncHeaderHeight(){
+    const h = document.querySelector('.site-header');
+    if(h) document.documentElement.style.setProperty('--site-head-h',
+      Math.ceil(h.getBoundingClientRect().height) + 'px');
+  }
+  window.addEventListener('resize', syncHeaderHeight);
+  window.addEventListener('orientationchange', syncHeaderHeight);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(syncHeaderHeight);
+  window.__syncHeaderHeight = syncHeaderHeight;
+  syncHeaderHeight();
+  // Phase 2.5 — swipe down on the drawer dismisses it: a redundant close path
+  // alongside the tab, scrim tap, and Escape. Only fires when the drawer's own
+  // scroll region is at the top, so content scrolling never triggers a close.
+  let drawerSwipeY = null;
+  drawer.addEventListener('touchstart', e => {
+    if(e.touches.length === 1) drawerSwipeY = e.touches[0].clientY;
+  }, { passive: true });
+  drawer.addEventListener('touchend', e => {
+    if(drawerSwipeY === null) return;
+    const dy = e.changedTouches[0].clientY - drawerSwipeY;
+    drawerSwipeY = null;
+    if(dy > 64 && drawerBody.scrollTop <= 0 && drawerOpen) setDrawer(false);
+  }, { passive: true });
+  document.addEventListener('keydown', e => {
+    if(e.key !== 'Escape') return;
+    if(!palSheet.hidden){
+      dismissSheet();
+      return;
+    }
+    if(!sensesSheet.hidden){
+      dismissSensesSheet();
+      return;
+    }
+    if(drawerOpen) setDrawer(false);
+  });
+  // Phase 1 — one sheet close grammar: scrim-tap behaves exactly like
+  // Escape (back out of the edit layer, restore senses state, or close).
+  function dismissSheet(){
+    if(!sheetLayerEdit.hidden) discardToLibrary();
+    else closeSheet();
+  }
+  document.querySelector('#palSheet .sheet-scrim').addEventListener('click', dismissSheet);
+
+  STYLES.forEach((st, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'seg-btn';
+    b.setAttribute('aria-pressed', String(i === styleIdx));
+    const nm = document.createElement('span'); nm.className = 'seg-name'; nm.textContent = st.name;
+    b.append(nm);
+    b.setAttribute('aria-label', st.name + ': ' + st.desc);
+    b.addEventListener('click', () => setStyle(i));
+    styleSeg.appendChild(b);
+  });
+  const styleDesc = document.getElementById('styleDesc');
+  const drawerSub = document.getElementById('drawerSub');
+  function updateStyleSeg(){
+    for(let i=0;i<styleSeg.children.length;i++)
+      styleSeg.children[i].setAttribute('aria-pressed', String(i === styleIdx));
+    styleDesc.textContent = STYLES[styleIdx].desc;
+    drawerSub.textContent = STYLES[styleIdx].name;
+  }
+  // Palette row: one-tap entry into the layered palette sheet. The row shows
+  // the active palette's swatch + name; all editing happens in the sheet.
+  const palRow = document.getElementById('palRow');
+  const palRowChip = document.getElementById('palRowChip');
+  const palRowName = document.getElementById('palRowName');
+  const palRowSub = document.getElementById('palRowSub');
+  const palStrip = document.getElementById('palStrip');
+  // Phase 2: inline quick-strip — tapping a swatch applies the palette
+  // immediately; the sheet stays closed. Refreshed by updatePalRow().
+  function renderPalStrip(){
+    palStrip.innerHTML = '';
+    for(const entry of paletteLib.list()){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pal-swatch';
+      b.setAttribute('aria-label', entry.name + ' palette');
+      const isActive = entry.builtin
+        ? (customPalId === '' && BUILTIN_INDEX[entry.id] === palIdx)
+        : customPalId === entry.id;
+      b.setAttribute('aria-pressed', String(isActive));
+      b.style.setProperty('--palette', KodaPalettes.swatchCSS(entry.colors));
+      b.addEventListener('click', () => { setPaletteId(entry.id); markInteract(); toast('Palette: ' + activePaletteName()); });
+      palStrip.appendChild(b);
+    }
+  }
+  function updatePalRow(){
+    const entry = activePaletteEntry();
+    const colors = entry ? entry.colors : PAL_BUILTINS['builtin-' + palIdx].colors;
+    palRowChip.style.background = KodaPalettes.swatchCSS(colors);
+    palRowName.textContent = activePaletteName();
+    palRowSub.textContent = colors.length + '-color ' + (entry && !entry.builtin ? 'custom' : 'library') + ' palette';
+    renderPalStrip();
+  }
+  palRow.addEventListener('click', () => { openPaletteSheet(); markInteract(); });
+
+  // Senses row: summary of mic/backdrop state; editing happens in the sheet.
+  const sensesRow = document.getElementById('sensesRow');
+  const sensesSummary = document.getElementById('sensesSummary');
+  sensesRow.addEventListener('click', () => { openSensesSheet(); markInteract(); });
+  function updateSensesSummary(){
+    const el = document.getElementById('sensesSummary');
+    if(!el) return;
+    const mic = micLive ? 'Listening' : 'Mic off';
+    const bg = bgMode === 'off' ? 'No backdrop'
+      : bgMode === 'camera' ? 'Camera backdrop' : 'Photo backdrop';
+    el.innerHTML = mic + ' &middot; ' + bg;
+  }
+
+  // ---------- layered sheets: palette library / editor / senses ----------
+  // Mirrors the Kaleidoscope's palette sheet. Transactional: opening the
+  // palette sheet snapshots the palette state; Cancel / back discards the
+  // working copy and restores the snapshot; Save applies + persists.
+  const palSheet = document.getElementById('palSheet');
+  const sheetLayerList = document.getElementById('sheetLayerList');
+  const sheetLayerEdit = document.getElementById('sheetLayerEdit');
+  const sensesSheet = document.getElementById('sensesSheet');
+  const sensesClose = document.getElementById('sensesClose');
+  const sheetGrid = document.getElementById('sheetGrid');
+  const sheetClose = document.getElementById('sheetClose');
+  const sheetBack = document.getElementById('sheetBack');
+  const customBase = document.getElementById('customBase');
+  const customPreview = document.getElementById('customPreview');
+  const customNameInput = document.getElementById('customName');
+  const customSaveButton = document.getElementById('customSave');
+  const customCancelButton = document.getElementById('customCancel');
+  let sheetSnapshot = null;
+  let lastHarmonyKind = null;
+
+  function snapshotSheetState(){
+    sheetSnapshot = { palIdx, customPalId };
+  }
+  function restoreSheetState(){
+    if(!sheetSnapshot) return;
+    palIdx = sheetSnapshot.palIdx;
+    customPalId = sheetSnapshot.customPalId;
+    workingColors = null;
+    customNameInput.value = '';
+    applyPalette(); saveLook(); updatePalRow();
+    sheetSnapshot = null;
+  }
+  function showSheetLayer(which){
+    sheetLayerList.hidden = which !== 'list';
+    sheetLayerEdit.hidden = which !== 'edit';
+  }
+  // Phase 2: Senses is its own L2 sheet — never a third palette-sheet layer.
+  // Phase 2.6 — the sheet is one panel with a root layer (functional
+  // sections) and one layer per section. Drilling takes over the SAME panel
+  // in place; the back button returns to the root; only the touched
+  // section's controls are shown. Escape / scrim / x back out of a drilled
+  // layer, or close from the root (the palette sheet's own grammar).
+  const sensesLayers = {
+    root: document.getElementById('sensesRoot'),
+    sensesMic: document.getElementById('sensesMic'),
+    sensesBackdrop: document.getElementById('sensesBackdrop'),
+    sensesView: document.getElementById('sensesView'),
+  };
+  const sensesTitles = {
+    root: 'sensesSheetTitle', sensesMic: 'sensesMicTitle',
+    sensesBackdrop: 'sensesBackdropTitle', sensesView: 'sensesViewTitle',
+  };
+  const sensesCard = sensesSheet.querySelector('.sheet-card');
+  const sensesReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let sensesCurrent = 'root';
+  let sensesReturnRow = null;
+  function showSensesLayer(name, focusTarget){
+    sensesCurrent = name;
+    for(const key of Object.keys(sensesLayers)){
+      const layer = sensesLayers[key];
+      const show = key === name;
+      if(layer.hidden === !show) continue;
+      layer.hidden = !show;
+      if(show && !sensesReduceMotion.matches){
+        layer.classList.remove('layer-enter');
+        void layer.offsetWidth;
+        layer.classList.add('layer-enter');
+      }
+    }
+    sensesCard.setAttribute('aria-labelledby', sensesTitles[name]);
+    const layer = sensesLayers[name];
+    const target = focusTarget
+      || (name === 'root' ? (sensesReturnRow || sensesClose)
+                          : layer.querySelector('[data-senses-back]'));
+    if(target) target.focus({ preventScroll: true });
+  }
+  function openSensesSheet(){
+    KodaPalettes.lockScroll();
+    sensesReturnRow = null;
+    sensesSheet.hidden = false;
+    sensesSheet.inert = false;
+    drawerBody.setAttribute('inert', '');
+    showSensesLayer('root', sensesClose);
+  }
+  function closeSensesSheet(){
+    KodaPalettes.unlockScroll();
+    sensesSheet.hidden = true;
+    sensesSheet.inert = true;
+    if(drawerOpen) drawerBody.removeAttribute('inert');
+    // Opened from the drawer row the drawer stays open behind the sheet;
+    // opened from the top-row button it may be closed, leaving sensesRow in
+    // an inert subtree where .focus() would silently drop to <body>.
+    (drawerOpen ? sensesRow : toolTab).focus({ preventScroll: true });
+  }
+  function dismissSensesSheet(){
+    // Back out of a drilled layer; close from the root.
+    if(sensesCurrent === 'root') closeSensesSheet();
+    else showSensesLayer('root');
+  }
+  document.querySelector('#sensesSheet .sheet-scrim').addEventListener('click', dismissSensesSheet);
+  sensesClose.addEventListener('click', dismissSensesSheet);
+  sensesSheet.querySelectorAll('[data-senses-layer]').forEach(row => {
+    row.addEventListener('click', () => {
+      sensesReturnRow = row;
+      showSensesLayer(row.getAttribute('data-senses-layer'));
+      markInteract();
+    });
+  });
+  sensesSheet.querySelectorAll('[data-senses-back]').forEach(btn => {
+    btn.addEventListener('click', () => { showSensesLayer('root'); markInteract(); });
+  });
+  function revealSheet(){
+    palSheet.hidden = false;
+    palSheet.inert = false;
+    drawerBody.setAttribute('inert', '');
+  }
+  function hideSheet(){
+    KodaPalettes.dismissDeletePrompt();
+    KodaPalettes.unlockScroll();
+    palSheet.hidden = true;
+    palSheet.inert = true;
+    if(drawerOpen) drawerBody.removeAttribute('inert');
+  }
+  function openPaletteSheet(){
+    snapshotSheetState();
+    KodaPalettes.lockScroll();
+    renderSheetGrid();
+    showSheetLayer('list');
+    revealSheet();
+    sheetClose.focus({ preventScroll: true });
+  }
+
+  function closeSheet(){
+    restoreSheetState();
+    hideSheet();
+    palRow.focus({ preventScroll: true });
+  }
+  function renderSheetGrid(){
+    KodaPalettes.dismissDeletePrompt();
+    sheetGrid.innerHTML = '';
+    for(const entry of paletteLib.list()){
+      const tile = document.createElement('div');
+      tile.className = 'sheet-tile';
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'sheet-swatch';
+      swatch.setAttribute('aria-label', entry.name + ' palette');
+      const isActive = entry.builtin
+        ? (customPalId === '' && BUILTIN_INDEX[entry.id] === palIdx)
+        : customPalId === entry.id;
+      swatch.setAttribute('aria-pressed', String(isActive));
+      swatch.style.setProperty('--palette', KodaPalettes.swatchCSS(entry.colors));
+      let holdCtl = null;
+      swatch.addEventListener('click', (event) => {
+        if (holdCtl && holdCtl.suppressIfHeld(event)) return; // hold fired: no tap-apply
+        KodaPalettes.dismissDeletePrompt();
+        sheetSnapshot = null; // selecting is an explicit accept
+        setPaletteId(entry.id);
+        KodaPalettes.unlockScroll();
+        hideSheet();
+        toast('Palette: ' + activePaletteName());
+        markInteract();
+        palRow.focus({ preventScroll: true });
+      });
+      const name = document.createElement('span');
+      name.className = 'sheet-tile-name';
+      name.textContent = entry.name;
+      tile.append(swatch, name);
+      if(!entry.builtin){
+        // Hold-to-delete is the single delete path (touch + mouse).
+        tile.title = 'Touch and hold to delete ' + entry.name;
+        swatch.setAttribute('aria-label', entry.name + ' palette. Touch and hold to delete.');
+        holdCtl = KodaPalettes.onHold(tile, () => {
+          KodaPalettes.confirmDelete(tile, entry.name, {
+            onDelete: () => {
+              const wasActive = customPalId === entry.id;
+              paletteLib.removeUser(entry.id);
+              if(wasActive) setPaletteId('builtin-0');
+              renderSheetGrid();
+            }
+          });
+        });
+      }
+      sheetGrid.appendChild(tile);
+    }
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'sheet-tile sheet-new';
+    add.setAttribute('aria-label', 'Build a new custom palette');
+    const plus = document.createElement('span');
+    plus.className = 'sheet-new-plus';
+    plus.setAttribute('aria-hidden', 'true');
+    plus.textContent = '+';
+    const label = document.createElement('span');
+    label.className = 'sheet-tile-name';
+    label.textContent = 'New palette';
+    add.append(plus, label);
+    add.addEventListener('click', openEditor);
+    sheetGrid.appendChild(add);
+  }
+  function renderWorkingPreview(){
+    customPreview.innerHTML = '';
+    if(!workingColors) return;
+    for(const hex of workingColors){
+      const cell = document.createElement('span');
+      cell.style.background = hex;
+      cell.title = hex;
+      customPreview.appendChild(cell);
+    }
+  }
+  function applySuggestion(kind){
+    lastHarmonyKind = kind;
+    let set;
+    if(kind === 'surprise'){
+      set = KodaPalettes.harmony.surprise();
+      customBase.value = set.baseHex;
+    } else {
+      set = KodaPalettes.harmony.makePaletteSet(customBase.value.toUpperCase(), kind);
+    }
+    workingColors = set.colors;
+    renderWorkingPreview();
+    applyPalette(); // live preview on the fractal
+    updatePalRow();
+  }
+  function openEditor(){
+    showSheetLayer('edit');
+    if(!workingColors) applySuggestion(lastHarmonyKind || 'triadic');
+    else renderWorkingPreview();
+  }
+  function discardToLibrary(){
+    restoreSheetState();
+    renderSheetGrid();
+    showSheetLayer('list');
+  }
+  sheetClose.addEventListener('click', closeSheet);
+  sheetBack.addEventListener('click', discardToLibrary);
+
+  customCancelButton.addEventListener('click', discardToLibrary);
+  customSaveButton.addEventListener('click', () => {
+    if(!workingColors) applySuggestion(lastHarmonyKind || 'triadic');
+    const userCount = paletteLib.list().filter(e => !e.builtin).length;
+    const name = customNameInput.value.trim() || ('Custom ' + (userCount + 1));
+    let id;
+    try {
+      id = paletteLib.addUser({ name, colors: workingColors });
+    } catch(err){
+      toast('Palette library is full (24 saved). Delete one first.');
+      return;
+    }
+    sheetSnapshot = null; // saving is an explicit accept
+    workingColors = null;
+    customPalId = id;
+    customNameInput.value = '';
+    applyPalette(); saveLook(); updatePalRow();
+    hideSheet();
+    toast('Palette saved: ' + name);
+    markInteract();
+    palRow.focus({ preventScroll: true });
+  });
+  document.querySelectorAll('.harmony-chip').forEach(ch => {
+    ch.addEventListener('click', () => applySuggestion(ch.dataset.harmony));
+  });
+  customBase.addEventListener('input', () => {
+    if(lastHarmonyKind && lastHarmonyKind !== 'surprise') applySuggestion(lastHarmonyKind);
+  });
+
+  // ---------- audio reaction (microphone only) ----------
+  // Mirrors the Kaleidoscope's proven mic pipeline: getUserMedia audio with
+  // the processing chain disabled (echoCancellation / noiseSuppression /
+  // autoGainControl all false — we want the room, not a conference call),
+  // AnalyserNode fftSize 2048, smoothingTimeConstant .82, three gated bands
+  // (low 20–160 Hz, mid 160–2000 Hz, high 2000–8000 Hz). Envelope followers
+  // run fast-attack (.34) / slow-release (.075) with a second .28 visual
+  // smoothing stage: transients punch through, the groove rides instead of
+  // jittering. Tuned for music, not speech.
+  //
+  // AUDIO -> VISUAL MAPPING (kept in sync with BUILD_LOG.md):
+  //   low    -> zoom pulse:  u_scale rendered as scale*(1+0.05*low).
+  //             Render-time wobble only — fractal state (center/scale)
+  //             untouched; also nudges the hold-dive sink rate ×(1+0.6*low).
+  //   mid    -> hue drift:   u_dye += mid*0.12; band-flow rate
+  //             0.055 + mid*0.30 (was a flat 0.055).
+  //   high   -> filament sparkle: u_treb scales the exp() highlight terms
+  //             in all three styles (×1.6 flow/contour, ×0.8 nebula).
+  //   energy -> idle-drift speed ×(1+2.5*energy), plus the UI meter.
+  // Every term multiplies the master sensitivity (0..2, default 1). With the
+  // mic off or denied, every term is exactly 0 and every uniform equals
+  // today's values — the app behaves as if this module didn't exist.
+  let audioCtx = null, audioStream = null, audioSrcNode = null;
+  let audioAnalyser = null, audioFreq = null;
+  let micLive = false;
+  let audioSens = 1;
+  const audioReactive = { low: 0, mid: 0, high: 0, energy: 0 };
+  const audioVisual = { low: 0, mid: 0, high: 0, energy: 0 };
+  // Injectable seam for automated checks: a function returning raw {low,mid,
+  // high} in 0..1, or null to use the live mic analyser. The harness drives
+  // this with synthetic signals to prove each band moves its mapped param.
+  let audioProvider = null;
+
+  function averageBand(data, sampleRate, fftSize, lowHz, highHz){
+    const binHz = sampleRate/fftSize;
+    const start = Math.max(0, Math.floor(lowHz/binHz));
+    const end = Math.min(data.length, Math.max(start+1, Math.ceil(highHz/binHz)));
+    let sum = 0;
+    for(let i=start;i<end;i++) sum += data[i];
+    return sum/Math.max(1, end-start)/255;
+  }
+  function followAudio(key, value){
+    const cur = audioReactive[key];
+    const amt = value > cur ? 0.34 : 0.075;
+    audioReactive[key] += (value-cur)*amt;
+    audioVisual[key] += (audioReactive[key]-audioVisual[key])*0.28;
+  }
+  function audioBandLevels(){
+    if(audioProvider) return audioProvider();
+    if(!audioAnalyser || !audioFreq || !audioCtx) return null;
+    audioAnalyser.getByteFrequencyData(audioFreq);
+    const rate = audioCtx.sampleRate, n = audioAnalyser.fftSize;
+    return {
+      low: averageBand(audioFreq, rate, n, 20, 160),
+      mid: averageBand(audioFreq, rate, n, 160, 2000),
+      high: averageBand(audioFreq, rate, n, 2000, 8000)
+    };
+  }
+  function pumpAudio(dt){
+    // Pause freezes the art: while paused the audio visuals hold exactly
+    // where they were — no decay, no easing, no meter motion.
+    if(paused) return;
+    const raw = audioBandLevels();
+    const gate = v => v < 0.018 ? 0 : Math.min(1, (v-0.018)/0.48);
+    const s = audioSens;
+    const L = raw ? Math.min(1, gate(raw.low)*s) : 0;
+    const M = raw ? Math.min(1, gate(raw.mid)*s) : 0;
+    const H = raw ? Math.min(1, gate(raw.high)*s) : 0;
+    followAudio('low', L);
+    followAudio('mid', M);
+    followAudio('high', H);
+    followAudio('energy', Math.min(1, L*0.42 + M*0.4 + H*0.18));
+    audioMeterEl.style.transform = 'scaleX(' + Math.min(1, audioVisual.energy*1.55).toFixed(3) + ')';
+  }
+  // Phase 2: one mic state drives THREE toggles — the top-row button, the
+  // senses-sheet toggle, and the drawer row. Same state, same tap.
+  bMicDrawer.addEventListener('click', () => { startAudio(); markInteract(); });
+  function updateAudioUI(msg){
+    bMic.setAttribute('aria-pressed', String(micLive));
+    micStateEl.textContent = micLive ? 'Stop listening' : 'Start listening';
+    // The top-level toggle mirrors the sheet toggle: same state, same tap.
+    bMicTop.setAttribute('aria-pressed', String(micLive));
+    bMicTop.setAttribute('aria-label', micLive ? 'Turn microphone off' : 'Turn microphone on');
+    bMicDrawer.setAttribute('aria-pressed', String(micLive));
+    bMicDrawer.setAttribute('aria-label', micLive ? 'Turn microphone off' : 'Turn microphone on');
+    micDrawerSub.textContent = micLive ? 'Listening' : 'Off';
+    micDrawerState.textContent = micLive ? 'On' : 'Off';
+    if(sensesMicSummary) sensesMicSummary.textContent = micLive ? 'Listening' : 'Off';
+    if(msg) audioStatusEl.textContent = msg;
+    updateSensesSummary();
+  }
+  function zeroAudio(){
+    // modulation must read exactly zero the moment the source is gone —
+    // especially while paused, where pumpAudio() holds (not decays) values.
+    audioReactive.low = audioReactive.mid = audioReactive.high = audioReactive.energy = 0;
+    audioVisual.low = audioVisual.mid = audioVisual.high = audioVisual.energy = 0;
+    if(audioMeterEl) audioMeterEl.style.transform = 'scaleX(0)';
+  }
+  function stopAudio(msg){
+    if(audioStream) audioStream.getTracks().forEach(t => { t.onended = null; try{ t.stop(); }catch(_){} });
+    if(audioSrcNode){ try{ audioSrcNode.disconnect(); }catch(_){} }
+    if(audioAnalyser){ try{ audioAnalyser.disconnect(); }catch(_){} }
+    if(audioCtx) audioCtx.close().catch(() => {});
+    audioCtx = null; audioStream = null; audioSrcNode = null;
+    audioAnalyser = null; audioFreq = null;
+    micLive = false;
+    zeroAudio();
+    updateAudioUI(msg || 'Audio reaction stopped.');
+  }
+  // Microphone is the only audio source: tab/system capture is not offered
+  // because macOS cannot provide it reliably (same call as Kaleidoscope).
+  async function startAudio(){
+    if(micLive){ stopAudio(); return; }
+    if(!window.isSecureContext){ updateAudioUI('Audio capture requires a secure browser connection.'); return; }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      updateAudioUI('Microphone capture is unavailable in this browser.'); return;
+    }
+    stopAudio('Requesting permission…');
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC){ updateAudioUI('Web Audio is unavailable in this browser.'); return; }
+    try{
+      audioCtx = new AC();
+      if(audioCtx.state === 'suspended') await audioCtx.resume();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+      audioStream = stream;
+      audioAnalyser = audioCtx.createAnalyser();
+      audioAnalyser.fftSize = 2048;
+      audioAnalyser.smoothingTimeConstant = 0.82;
+      audioFreq = new Uint8Array(audioAnalyser.frequencyBinCount);
+      audioSrcNode = audioCtx.createMediaStreamSource(stream);
+      audioSrcNode.connect(audioAnalyser);
+      micLive = true;
+      stream.getTracks().forEach(t => { t.onended = () => stopAudio('Microphone disconnected.'); });
+      updateAudioUI('Listening to the microphone.');
+      toast('Microphone on');
+    }catch(err){
+      const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      stopAudio(denied
+        ? 'Microphone permission was not granted. You can try again whenever you are ready.'
+        : 'The microphone is unavailable here.');
+    }
+  }
+  bMic.addEventListener('click', () => { startAudio(); markInteract(); });
+  // Top-level mic toggle beside pause: the tap itself is the getUserMedia
+  // user gesture; permission denial flows through startAudio's graceful
+  // messaging, and updateAudioUI keeps both toggles in sync.
+  bMicTop.addEventListener('click', () => { startAudio(); markInteract(); });
+  // Phase 2.5 — the top-row camera control acts in place (mirrors the
+  // Kaleidoscope lens button): when the camera is off this tap IS the
+  // getUserMedia permission gesture, so it starts the camera directly;
+  // when unsupported it opens Senses with guidance; when the camera is
+  // already on, the tap opens Senses (flip, photo, turn off) instead of
+  // killing the session by accident.
+  bLensTop.addEventListener('click', () => {
+    if(bgMode !== 'camera'){
+      if(hasBgCameraSupport()) startBgCamera();
+      else {
+        openSensesSheet();
+        bgStatus('Camera capture is unavailable in this browser — a photo works with no permission.');
+      }
+    } else {
+      openSensesSheet();
+    }
+    markInteract();
+  });
+  sensRange.addEventListener('input', () => {
+    audioSens = parseFloat(sensRange.value) || 0;
+    sensVal.innerHTML = audioSens.toFixed(2) + '&times;';
+    store.set('sens', audioSens);
+  });
+  (function initSens(){
+    const s = store.getState().sens;
+    if(typeof s === 'number' && s >= 0 && s <= 2){
+      audioSens = s;
+      sensRange.value = String(s);
+      sensVal.innerHTML = s.toFixed(2) + '&times;';
+    }
+  })();
+
+  // ---------- backdrop layer: camera/photo as the full-viewport base ----------
+  // The feed is the full-viewport base layer and the fractal composites
+  // over it as a translucent color film (see the shader's background
+  // block; u_film drives the film strength, default 0.65, adjustable in
+  // the Senses sheet). Off by default; u_bgMix eases 0<->1 so toggles
+  // fade instead of popping.
+  //
+  // Cost discipline: camera frames are drawn cover-cropped into a 480x270
+  // 2D canvas and uploaded via texSubImage2D every 4th frame (~15 fps at
+  // 60 fps) — ~518 KB per upload, negligible next to the fractal's own
+  // pixels*iterations budget, which is untouched. Photos upload once.
+  // Tracks stop on layer-off, pagehide, and visibilitychange, mirroring
+  // the Kaleidoscope's lens harness.
+  const BG_W = 480, BG_H = 270;
+  let bgMode = 'off';            // 'off' | 'camera' | 'photo'
+  let bgMix = 0, bgMixTarget = 0;
+  let filmStrength = 0.65;       // fractal-as-color-film strength over the backdrop (0..1)
+  // Per-style film multiplier: the nebula render is dark, so the camera
+  // feed would dominate the blend. Nebula (styleIdx 2) gets a 1.3x boost
+  // on the effective film; other styles stay at 1.0. The slider's
+  // persisted value and position never change — only the uniform sent to
+  // the shader. Computed live every frame, so style changes (including
+  // while paused) take effect immediately.
+  function filmStyleMul(){ return styleIdx === 2 ? 1.3 : 1.0; }
+  function effectiveFilm(){ return Math.min(filmStrength * filmStyleMul(), 0.97); }
+  let bgVideo = null, bgStream = null, bgFacing = 'environment';
+  let bgCanvas = null, bgCtx2d = null, bgTex = null, bgFrame = 0;
+
+  function ensureBgCanvas(){
+    if(bgCanvas) return;
+    bgCanvas = document.createElement('canvas');
+    bgCanvas.width = BG_W; bgCanvas.height = BG_H;
+    bgCtx2d = bgCanvas.getContext('2d', { alpha: false });
+    bgCtx2d.fillStyle = '#000';
+    bgCtx2d.fillRect(0, 0, BG_W, BG_H);
+  }
+  function uploadBgCanvas(){
+    if(!gl || !bgTex || !bgCanvas) return;
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, bgTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, bgCanvas);
+    gl.activeTexture(gl.TEXTURE0);
+  }
+  function bgStatus(msg){ bgStatusEl.textContent = msg; }
+  function updateBgUI(msg){
+    bgOffBtn.setAttribute('aria-pressed', String(bgMode === 'off'));
+    bgCamBtn.setAttribute('aria-pressed', String(bgMode === 'camera'));
+    bgPhotoBtn.setAttribute('aria-pressed', String(bgMode === 'photo'));
+    bFlipCam.hidden = bgMode !== 'camera';
+    // Phase 2.5 — the top-row camera button mirrors the camera state with
+    // the same two-way discipline as the mic: enabled from either the top
+    // row or Senses marks it active; turning it off clears it.
+    const camOn = bgMode === 'camera';
+    bLensTop.setAttribute('aria-pressed', String(camOn));
+    bLensTop.setAttribute('aria-label', camOn ? 'Camera is on: open camera and backdrop controls' : 'Start camera');
+    if(sensesBackdropSummary) sensesBackdropSummary.textContent =
+      bgMode === 'off' ? 'Off' : bgMode === 'camera' ? 'Camera' : 'Photo';
+    if(msg) bgStatus(msg);
+    updateSensesSummary();
+  }
+  function stopBgTracks(){
+    if(bgStream) bgStream.getTracks().forEach(t => { t.onended = null; try{ t.stop(); }catch(_){} });
+    if(bgVideo){ try{ bgVideo.pause(); }catch(_){} bgVideo.srcObject = null; }
+    bgStream = null;
+  }
+  function setBgMode(m, msg){
+    if(m === 'camera' && bgMode !== 'camera'){ startBgCamera(); return; }
+    if(m !== 'off') return; // 'photo' arrives via the file picker, not directly
+    stopBgTracks();
+    bgMode = 'off'; bgMixTarget = 0;
+    updateBgUI(msg || 'No background layer.');
+  }
+  function hasBgCameraSupport(){
+    return window.isSecureContext && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+  async function startBgCamera(){
+    if(!window.isSecureContext){ bgStatus('Camera access requires a secure (https) connection.'); return; }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      bgStatus('Camera capture is unavailable in this browser.'); return;
+    }
+    stopBgTracks();
+    bgStatus('Requesting camera…');
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: bgFacing, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      if(!stream.getVideoTracks().length){
+        stream.getTracks().forEach(t => t.stop());
+        throw new Error('NO_VIDEO_TRACK');
+      }
+      if(!bgVideo){
+        bgVideo = document.createElement('video');
+        bgVideo.muted = true; bgVideo.playsInline = true;
+        bgVideo.setAttribute('playsinline', '');
+      }
+      bgVideo.srcObject = stream;
+      await bgVideo.play();
+      ensureBgCanvas();
+      bgStream = stream; bgMode = 'camera'; bgMixTarget = 1;
+      stream.getVideoTracks().forEach(t => {
+        t.onended = () => { if(bgMode === 'camera') setBgMode('off', 'Camera was disconnected.'); };
+      });
+      updateBgUI(bgFacing === 'user' ? 'Live camera · front.' : 'Live camera · rear.');
+      toast('Backdrop: camera');
+    }catch(err){
+      const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      stopBgTracks();
+      const msg = denied ? 'Camera permission was not granted. A photo works with no permission.'
+        : err && err.message === 'NO_VIDEO_TRACK' ? 'No camera was found on this device.'
+        : 'The camera is unavailable here.';
+      bgStatus(msg);
+      // Phase 2.5 — the guidance may fire while Senses is closed (e.g. the
+      // top-row button starting the camera in place), so say it out loud.
+      toast(denied ? 'Camera permission not granted' : 'Camera unavailable');
+    }
+  }
+  function drawBitmapToBg(bitmap){
+    ensureBgCanvas();
+    const s = Math.max(BG_W/bitmap.width, BG_H/bitmap.height); // cover
+    const dw = bitmap.width*s, dh = bitmap.height*s;
+    bgCtx2d.drawImage(bitmap, (BG_W-dw)/2, (BG_H-dh)/2, dw, dh);
+    uploadBgCanvas();
+  }
+  async function useBgPhoto(file){
+    if(!file) return;
+    bgStatus('Loading photo…');
+    try{
+      const bitmap = await createImageBitmap(file);
+      drawBitmapToBg(bitmap);
+      if(bitmap.close) bitmap.close();
+      bgMode = 'photo'; bgMixTarget = 1;
+      updateBgUI('Photo backdrop · ' + (file.name || 'image') + '.');
+      toast('Backdrop: photo');
+    }catch(err){
+      bgStatus('That photo could not be used. Try another image.');
+    }
+  }
+  bgOffBtn.addEventListener('click', () => { setBgMode('off'); markInteract(); });
+  bgCamBtn.addEventListener('click', () => {
+    if(bgMode === 'camera') setBgMode('off'); else startBgCamera();
+    markInteract();
+  });
+  bgPhotoBtn.addEventListener('click', () => { bgFileInput.click(); markInteract(); });
+  bgFileInput.addEventListener('change', () => {
+    useBgPhoto(bgFileInput.files && bgFileInput.files[0]);
+    bgFileInput.value = '';
+  });
+  bFlipCam.addEventListener('click', async () => {
+    bgFacing = bgFacing === 'user' ? 'environment' : 'user';
+    if(bgMode === 'camera'){ stopBgTracks(); bgMode = 'off'; await startBgCamera(); }
+    markInteract();
+  });
+  // Debug hook: paint a synthetic backdrop (gradient + disc) so automated
+  // checks can verify compositing without a camera. Snaps the mix for
+  // deterministic screenshots.
+  function bgTestPattern(){
+    ensureBgCanvas();
+    const g = bgCtx2d.createLinearGradient(0, 0, BG_W, BG_H);
+    g.addColorStop(0, '#ff5f6d'); g.addColorStop(0.5, '#6d5fff'); g.addColorStop(1, '#2bff88');
+    bgCtx2d.fillStyle = g;
+    bgCtx2d.fillRect(0, 0, BG_W, BG_H);
+    bgCtx2d.fillStyle = 'rgba(255,255,240,0.9)';
+    bgCtx2d.beginPath();
+    bgCtx2d.arc(BG_W*0.7, BG_H*0.35, BG_H*0.28, 0, 7);
+    bgCtx2d.fill();
+    uploadBgCanvas();
+    bgMode = 'photo'; bgMixTarget = 1; bgMix = 1;
+    updateBgUI('Photo backdrop · test pattern.');
+  }
+  // Film strength slider: how much of the fractal film shows over the
+  // backdrop (0 = backdrop only, 1 = opaque fractal). Persisted like the
+  // other look settings; the shader reads filmStrength every frame.
+  filmRange.addEventListener('input', () => {
+    filmStrength = Math.min(1, Math.max(0, parseFloat(filmRange.value) || 0));
+    filmVal.textContent = Math.round(filmStrength*100) + '%';
+    store.set('film', filmStrength);
+  });
+  (function initFilm(){
+    const f = store.getState().film;
+    if(typeof f === 'number' && f >= 0 && f <= 1){
+      filmStrength = f;
+      filmRange.value = String(f);
+      filmVal.textContent = Math.round(f*100) + '%';
+    }
+  })();
+  function pumpBg(dt){
+    // The film strength is a UI control: always live, even while paused,
+    // so paused film edits are immediately visible. The uniform receives
+    // the style-adjusted effective film, not the raw slider value.
+    gl.uniform1f(U.u_film, effectiveFilm());
+    // Pause freezes everything else: no mix easing, no camera-frame uploads.
+    if(paused) return;
+    // ease the mix toward its target: toggles fade, never pop
+    const k = 1 - Math.exp(-dt*6);
+    bgMix += (bgMixTarget-bgMix)*k;
+    if(Math.abs(bgMixTarget-bgMix) < 0.003) bgMix = bgMixTarget;
+    gl.uniform1f(U.u_bgMix, bgMix);
+    if(bgMode === 'camera' && bgVideo && bgVideo.readyState >= 2 && (bgFrame++ & 3) === 0){
+      const vw = bgVideo.videoWidth, vh = bgVideo.videoHeight;
+      if(vw > 0 && vh > 0 && bgCtx2d){
+        const s = Math.max(BG_W/vw, BG_H/vh); // cover
+        const dw = vw*s, dh = vh*s;
+        bgCtx2d.drawImage(bgVideo, (BG_W-dw)/2, (BG_H-dh)/2, dw, dh);
+        uploadBgCanvas();
+      }
+    }
+  }
+
+  // ---------- buttons ----------
+  const MAX_SCALE = S0 * 1.5;
+  // Phase 2: one Reset button, scoped by an L3 hold-to-confirm prompt.
+  // View = camera/zoom/position only; appearance = palette/style only;
+  // everything = all applicable settings.
+  function resetViewScope(announce){
+    markInteract();
+    diveId = null; diveTarget = null; panning = false; tweens.length = 0;
+    if(pendingTap){ clearTimeout(pendingTap.timer); pendingTap = null; }
+    const fc = { x: [center.x[0], center.x[1]], y: [center.y[0], center.y[1]] };
+    const fs = scale;
+    tween(0.8, k => {
+      const e = easeInOut(k);
+      center.x = ddLerp(fc.x, ddFromNum(C0x), e);
+      center.y = ddLerp(fc.y, ddFromNum(C0y), e);
+      scale = fs + (S0-fs)*e;
+    });
+    setDrawer(false);
+    if(announce !== false) toast('View reset');
+  }
+  function resetAppearanceScope(announce){
+    markInteract();
+    palIdx = 0; customPalId = ''; workingColors = null;
+    applyPalette(); updatePalRow();
+    if(styleIdx !== 0) setStyle(0);
+    saveLook();
+    if(announce !== false) toast('Appearance reset');
+  }
+  function resetEverythingScope(){
+    resetAppearanceScope(false);
+    resetViewScope(false);
+    toast('Everything reset');
+  }
+  function openScopePrompt(anchorBtn){
+    closeScopePrompt();
+    const prompt = document.createElement('div');
+    prompt.className = 'scope-prompt';
+    prompt.id = 'scopePrompt';
+    prompt.setAttribute('role', 'alertdialog');
+    prompt.setAttribute('aria-label', 'Choose reset scope');
+    prompt.innerHTML =
+      '<p class="scope-title">Reset</p>' +
+      '<p class="scope-hint">Touch and hold a scope to reset it.</p>' +
+      '<div class="scope-options">' +
+      '<button type="button" class="scope-option" data-scope="view"><strong>View</strong><small>Zoom &amp; position</small></button>' +
+      '<button type="button" class="scope-option" data-scope="appearance"><strong>Appearance</strong><small>Style &amp; palette</small></button>' +
+      '<button type="button" class="scope-option" data-scope="everything"><strong>Everything</strong><small>View + appearance</small></button>' +
+      '</div>' +
+      '<button type="button" class="scope-cancel">Cancel</button>';
+    document.body.appendChild(prompt);
+    const r = anchorBtn.getBoundingClientRect();
+    const w = prompt.offsetWidth;
+    prompt.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+    prompt.style.bottom = Math.max(8, window.innerHeight - r.top + 8) + 'px';
+    const onDocDown = e => {
+      if(prompt.contains(e.target)) return;
+      e.stopPropagation();
+      closeScopePrompt();
+    };
+    const onKey = e => {
+      if(e.key === 'Escape'){ e.stopPropagation(); closeScopePrompt(); }
+    };
+    document.addEventListener('pointerdown', onDocDown, true);
+    document.addEventListener('keydown', onKey, true);
+    prompt._cleanup = () => {
+      document.removeEventListener('pointerdown', onDocDown, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+    for(const btn of prompt.querySelectorAll('.scope-option')){
+      KodaPalettes.onHold(btn, () => {
+        const scope = btn.dataset.scope;
+        if(scope === 'view') resetViewScope();
+        else if(scope === 'appearance') resetAppearanceScope();
+        else resetEverythingScope();
+        closeScopePrompt();
+      }, { holdMs: 500 });
+    }
+    prompt.querySelector('.scope-cancel').addEventListener('click', closeScopePrompt);
+  }
+  function closeScopePrompt(){
+    const prompt = document.getElementById('scopePrompt');
+    if(!prompt) return;
+    if(prompt._cleanup) prompt._cleanup();
+    prompt.remove();
+  }
+  bReset.addEventListener('click', () => {
+    setDrawer(false);
+    openScopePrompt(bReset);
+  });
+  bPause.addEventListener('click', () => {
+    paused = !paused;
+    bPause.setAttribute('aria-pressed', String(paused));
+    bPause.setAttribute('aria-label', paused ? 'Play animation' : 'Pause animation');
+  });
+
+  // ---------- readout ----------
+  let frame = 0;
+  function fmtMag(){
+    const z = S0/scale;
+    if(z < 1000) return '\u00D7' + Math.round(z);
+    if(z < 1e6) return '\u00D7' + (z/1000).toFixed(1) + 'k';
+    if(z < 1e9) return '\u00D7' + (z/1e6).toFixed(1) + 'M';
+    if(z < 1e12) return '\u00D7' + (z/1e9).toFixed(1) + 'B';
+    return '\u00D7' + z.toExponential(1);
+  }
+  function fmtC(v){
+    if(v === 0) return '0';
+    const a = Math.abs(v);
+    if(a >= 10000 || a < 1e-5) return v.toExponential(4);
+    const s = v.toPrecision(6);
+    if(s.indexOf('e') !== -1) return s;
+    return s.replace(/(\.\d*?)0+$/, '$1');
+  }
+  function fmtCenter(){
+    const cx = ddToNum(center.x), cy = ddToNum(center.y);
+    const re = fmtC(cx), im = fmtC(cy);
+    return re + (cy < 0 ? ' \u2212 ' : ' + ') + im.replace(/^-/, '') + 'i';
+  }
+
+  // ---------- main loop ----------
+  let last = performance.now();
+  let rafId = 0, ctxLost = false;
+  function loop(now){
+    rafId = requestAnimationFrame(loop);
+    if(ctxLost) return;
+    let dt = (now-last)/1000;
+    last = now;
+    if(dt > 0.05) dt = 0.05;
+    window.__mandel._frameNo++;
+    { const _wm = window.__mandel, _now = performance.now();
+      const _fw = _wm._frameWall || (_wm._frameWall = []);
+      if(_wm._lastFrameT) _fw.push(_now - _wm._lastFrameT);
+      _wm._lastFrameT = _now;
+      if(_fw.length > 6000) _fw.shift();
+      const _fd = _wm._frameDts; _fd.push(dt*1000); if(_fd.length > 6000) _fd.shift(); }
+    if(dt <= 0) return;
+
+    pumpQuality(now, dt); // interaction tier + thermal governor ease every frame
+    pumpAudio(dt); // mic bands -> smoothed audioVisual.{low,mid,high,energy}
+
+    if(!paused){
+      timeSec += dt;
+      flowSec += dt*(0.055 + audioVisual.mid*0.30); // mid band hurries the dye flow
+    }
+
+    // tweens
+    for(let i=tweens.length-1; i>=0; i--){
+      const tw = tweens[i];
+      tw.t += dt;
+      const k = Math.min(1, tw.t/tw.dur);
+      tw.apply(k);
+      if(k >= 1){ tweens.splice(i,1); tw.done && tw.done(); }
+    }
+
+    // the dive: hold still -> sink into the spot under your finger.
+    // the target is captured once when the dive engages, so the fractal
+    // coordinate beneath the fingertip stays glued there while the world magnifies.
+    if(diveId !== null && pointers.has(diveId) && performance.now() >= diveArmedAt && tweens.length === 0){
+      const pt = pointers.get(diveId);
+      if(diveTarget === null){
+        diveTarget = touchComplex(pt.x, pt.y);
+        if(floatTexExt && !forceClassic && (S0/scale) > PERT_DEPTH) rebaseAt(diveTarget); // anchor the orbit where we're sinking
+      }
+      const k = 1 - Math.exp(-3.2*dt);
+      center.x = ddAdd(center.x, ddMul(ddFromNum(k), ddSub(diveTarget.x, center.x)));
+      center.y = ddAdd(center.y, ddMul(ddFromNum(k), ddSub(diveTarget.y, center.y)));
+      scale = Math.max(MIN_SCALE, scale*Math.exp(-1.05*(1 + audioVisual.low*0.6)*dt));
+    }
+
+    // idle drift: a slow wander when untouched and unpaused (off under reduced motion)
+    if(!paused && !REDUCED && diveId === null && !panning && pointers.size === 0 && tweens.length === 0
+       && timeSec - lastInteract > 4){
+      // energy band lends the idle wander some of the room's liveliness
+      const driftK = 1 + audioVisual.energy*2.5;
+      center.x = ddAdd(center.x, ddFromNum(Math.sin(timeSec*0.13)*dt*0.020*scale*driftK));
+      center.y = ddAdd(center.y, ddFromNum(Math.cos(timeSec*0.09)*dt*0.020*scale*driftK));
+    }
+
+    const zoomF = S0/scale;
+    maxIter = Math.min(8192, 170 + 55*Math.log2(Math.max(1, zoomF)));
+    iterEff = Math.min(8192, maxIter*iterMulCur); // the tier/governor-adjusted budget actually rendered
+    // hue evolves with dive depth, so color change is tied to exploration, not a timer;
+    // the mid band adds a gentle audio-driven drift on top (0 when mic is off)
+    const dyePhase = (dyeBase + 0.12*Math.log2(Math.max(1, zoomF)) + audioVisual.mid*0.12) % 1;
+
+    // Dynamic renderer gating (unchanged Sept-21 semantics): perturbation
+    // engages past PERT_DEPTH, or for the whole of a tap-dive whose end depth
+    // needs it (latched in tapDive). Hold-dives / pinches crossing the
+    // threshold mid-gesture queue a re-anchor here; the chunked build lands a
+    // few frames later and the domain crossfades in (D3) — no synchronous
+    // rebase ever runs on an animation frame (D2).
+    const inDive = tweens.some(t => t.dive);
+    if(pertLatch && !inDive) pertLatch = false;
+    const wantPert = floatTexExt && !forceClassic && ((S0/scale) > PERT_DEPTH || pertLatch);
+    pertActive = wantPert;
+    if(wantPert && !rebaseJob && !rebaseQueued){
+      if(orbitLen === 0){
+        requestRebase(center); // first anchor for this session's deep region
+      } else {
+        const rdx = ddToNum(ddSub(center.x, refC.x));
+        const rdy = ddToNum(ddSub(center.y, refC.y));
+        const drift = Math.hypot(rdx, rdy)/scale;
+        // D5: hysteresis band — fire past 0.75*scale, re-arm below 0.25*scale.
+        // During a tap-dive tween the anchor sits at the destination and the
+        // view converges onto it, so drift re-anchoring stays suppressed.
+        if(driftArmed && drift > 0.75 && !inDive) requestRebase(center);
+        else if(drift < 0.25) driftArmed = true;
+        // D6: with 2x orbit headroom this no longer fires mid-dive; kept as
+        // the safety net for pathological iteration growth.
+        if(maxIter > orbitLen*0.8) requestRebase(center, maxIter);
+      }
+    }
+    // Pump the debounce queue and chunk the orbit build across frames.
+    const nowMs = performance.now();
+    if(!rebaseJob && rebaseQueued && nowMs >= rebaseNotBefore){
+      const m = Math.max(maxIter, rebaseQueued.iterHint);
+      const need = Math.min(ORBIT_MAX, Math.max(256, Math.ceil(m*2) + 256));
+      rebaseJob = { p: rebaseQueued.p, n: 0, need, z: { x: [0,0], y: [0,0] } };
+      rebaseQueued = null;
+    }
+    if(rebaseJob) pumpRebaseJob();
+
+    // D3/D4: the renderer domain never hard-flips. domainTarget follows the
+    // gate, but a locked tween (reset / double-tap surface) freezes it at its
+    // start-of-tween value. Any change animates through u_blend over 3 frames.
+    let domainTarget = (wantPert && orbitLen > 0) ? 1 : 0;
+    const lockTw = tweens.find(t => t.domainLock);
+    if(lockTw) domainTarget = lockTw.domainAtStart;
+    if(domainTarget !== blendTarget){ blendFrom = blend; blendTarget = domainTarget; blendT = 0; }
+    if(blend !== blendTarget){
+      blendT++;
+      blend = blendFrom + (blendTarget-blendFrom)*Math.min(1, blendT/3);
+    }
+
+    resize();
+    pumpBg(dt); // backdrop mix ease + throttled camera-frame uploads
+    pumpPalette(dt);
+    pumpStyleXfade(dt);
+    gl.uniform2f(U.u_res, canvas.width, canvas.height);
+    // Backdrop aspect comes from the texture size constants, never
+    // hardcoded; set per frame so context restores can't desync it.
+    gl.uniform1f(U.u_bgAspect, BG_W/BG_H);
+    gl.uniform2f(U.u_center, ddToNum(center.x), ddToNum(center.y));
+    // u_delta tracks the BOUND orbit's anchor (texC), never the in-flight
+    // one: the shader's texture and its anchor must always agree.
+    gl.uniform2f(U.u_delta, ddToNum(ddSub(center.x, texC.x)), ddToNum(ddSub(center.y, texC.y)));
+    // bass zoom pulse: render-time wobble only, fractal state untouched
+    gl.uniform1f(U.u_scale, scale*(1 + 0.05*audioVisual.low));
+    gl.uniform1f(U.u_dye, dyePhase);
+    gl.uniform1f(U.u_treb, audioVisual.high); // treble -> filament sparkle
+    // texel i+1 is fetched, so keep one texel of headroom past u_iter
+    gl.uniform1f(U.u_iter, blend > 0.001 ? Math.min(iterEff, orbitLen - 1) : Math.min(iterEff, 8192));
+    gl.uniform1f(U.u_flow, flowSec % 64);
+    gl.uniform1f(U.u_blend, blend);
+    gl.uniform1f(U.u_orbitLen, orbitLen);
+    gl.uniform1f(U.u_styleA, styleA);
+    gl.uniform1f(U.u_styleB, styleB);
+    gl.uniform1f(U.u_xfade, xfade);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    if((frame++ & 7) === 0){
+      rMag.textContent = fmtMag();
+      if(sensesViewSummary) sensesViewSummary.textContent = fmtMag();
+      rCenter.textContent = fmtCenter();
+      rIter.textContent = String(Math.round(iterEff));
+      const degraded = scaleCur < 0.985 || iterMulCur < 0.985;
+      rQualRow.hidden = !degraded;
+      if(degraded) rQual.textContent = govLevel > 0 ? 'Adaptive (load)' : 'Adaptive (motion)';
+    }
+  }
+
+  // ---------- context loss: user-visible restore, never a silent stall ----------
+  canvas.addEventListener('webglcontextlost', e => {
+    e.preventDefault();
+    if(ctxLost) return;
+    ctxLost = true;
+    cancelAnimationFrame(rafId);
+    showStatus('The graphics context was lost. Restoring the fractal…', 'Restoring');
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    try {
+      initGL(); // rebuilds program, buffers, textures, uniforms; re-uploads the orbit
+      ctxLost = false;
+      hideStatus();
+      last = performance.now();
+      lastRaw = performance.now();
+      rafId = requestAnimationFrame(loop);
+    } catch(err){
+      showStatus('The fractal could not be restored: ' + err.message, 'Restore failed');
+    }
+  });
+
+  // ---------- lifecycle: never hold the mic or camera while hidden ----------
+  // Mirrors the Kaleidoscope's lens harness: tracks stop on layer-off,
+  // pagehide, and visibility changes. The mic stops too — holding a live
+  // microphone in a background tab is never the right call.
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){ setBgMode('off'); stopAudio(); }
+  });
+  window.addEventListener('pagehide', () => { store.flush(); stopBgTracks(); stopAudio(); });
+
+  // ---------- debug hook for automated checks ----------
+  window.__mandel = {
+    toast, // debug seam: lets automated checks fire a toast in any UI state
+    get center(){ return { x: ddToNum(center.x), y: ddToNum(center.y) }; },
+    get scale(){ return scale; },
+    get depth(){ return S0/scale; },
+    get maxIter(){ return Math.round(maxIter); },
+    get iterEff(){ return Math.round(iterEff); },
+    get palette(){ return activePaletteName(); },
+    get style(){ return STYLES[styleIdx].name; },
+    get quality(){ return { gov: govLevel, scale: +scaleCur.toFixed(3), iterMul: +iterMulCur.toFixed(3) }; },
+    get costProxy(){ return Math.round(canvas.width*canvas.height*iterEff); },
+    get xfade(){ return +xfade.toFixed(3); },
+    setGov(n){ govLevel = Math.max(0, Math.min(3, n|0)); overN = 0; headN = 0; },
+    get direct(){ return !pertActive; },
+    get pertActive(){ return pertActive; },
+    get floatTex(){ return !!floatTexExt; },
+    get orbitLen(){ return orbitLen; },
+    get minScale(){ return MIN_SCALE; },
+    _lastRebaseMs: 0,
+    _rebaseRequests: 0,   // requestRebase calls (deferred; never blocks a frame)
+    _rebaseSyncTween: 0,  // full synchronous builds landing on tween frames (must stay 0)
+    _rebaseChunkMaxMs: 0, // slowest single-frame chunk pump observed
+    _frameNo: 0,
+    _frameDts: [],
+    get blend(){ return blend; },
+    get blendTarget(){ return blendTarget; },
+    get _bgMode(){ return bgMode; },
+    get _bgMix(){ return bgMix; },
+    setDirect(b){ forceClassic = !!b; }, // true: force classic path (debug); false: auto gate
+    // --- sensory debug seam ---
+    // setAudioSource(fn): inject a synthetic audio source; fn returns raw
+    // {low,mid,high} in 0..1 (or null for the live mic). The harness drives
+    // this to prove each band moves its mapped visual param.
+    setAudioSource(fn){
+      audioProvider = (typeof fn === 'function') ? fn : null;
+      if(!audioProvider && !micLive) zeroAudio();
+    },
+    get audioBands(){
+      return { low: +audioVisual.low.toFixed(4), mid: +audioVisual.mid.toFixed(4),
+               high: +audioVisual.high.toFixed(4), energy: +audioVisual.energy.toFixed(4) };
+    },
+    get audioMap(){ // the mapped visual params the bands drive (see mapping table)
+      return { zoom: +(1 + 0.05*audioVisual.low).toFixed(4),
+               dyeAdd: +(audioVisual.mid*0.12).toFixed(4),
+               treb: +audioVisual.high.toFixed(4),
+               flowRate: +(0.055 + audioVisual.mid*0.30).toFixed(4) };
+    },
+    get micLive(){ return micLive; },
+    get audioSens(){ return audioSens; },
+    get bgMode(){ return bgMode; },
+    get bgMix(){ return +bgMix.toFixed(3); },
+    get film(){ return +filmStrength.toFixed(2); },
+    get filmEffective(){ return +effectiveFilm().toFixed(3); },
+    setFilm(v){
+      const n = Math.min(1, Math.max(0, parseFloat(v)));
+      if(!isFinite(n)) return;
+      filmStrength = n;
+      filmRange.value = String(n);
+      filmVal.textContent = Math.round(n*100) + '%';
+      store.set('film', n);
+    },
+    setBgMode(m){ setBgMode(m); },
+    _bgTestPattern(){ bgTestPattern(); },
+    // Aspect harness seam: paint a circle+grid test photo at any source
+    // aspect and run it through the REAL photo path (cover-crop into the
+    // 480x270 texture). Returns a promise; snaps the mix for deterministic
+    // screenshots. Debug only, like bgTestPattern.
+    _bgTestPhoto(w, h){
+      ensureBgCanvas();
+      const c = document.createElement('canvas');
+      c.width = Math.max(2, Math.round(w)); c.height = Math.max(2, Math.round(h));
+      const x = c.getContext('2d');
+      x.fillStyle = '#0b0e1a'; x.fillRect(0, 0, c.width, c.height);
+      x.strokeStyle = 'rgba(255,255,255,0.28)';
+      x.lineWidth = Math.max(1, c.width/400);
+      for(let i = 1; i < 8; i++){
+        x.beginPath(); x.moveTo(c.width*i/8, 0); x.lineTo(c.width*i/8, c.height); x.stroke();
+        x.beginPath(); x.moveTo(0, c.height*i/8); x.lineTo(c.width, c.height*i/8); x.stroke();
+      }
+      const r = Math.min(c.width, c.height)/8; // small enough to survive any cover-crop
+      x.fillStyle = '#f5f5f0';
+      x.beginPath(); x.arc(c.width/2, c.height/2, r, 0, 7); x.fill();
+      x.strokeStyle = '#ff3b30'; x.lineWidth = Math.max(2, c.width/200);
+      x.beginPath(); x.arc(c.width/2, c.height/2, r, 0, 7); x.stroke();
+      return createImageBitmap(c).then(bmp => {
+        drawBitmapToBg(bmp);
+        if(bmp.close) bmp.close();
+        bgMode = 'photo'; bgMixTarget = 1; bgMix = 1;
+        updateBgUI('Photo backdrop · aspect test.');
+      });
+    },
+    rebase(){ rebaseNow(center); },
+    refLag(){
+      const dx = ddToNum(ddSub(center.x, refC.x)), dy = ddToNum(ddSub(center.y, refC.y));
+      return Math.hypot(dx, dy)/scale;
+    },
+    setView(x, y, s){
+      center.x = ddFromNum(x); center.y = ddFromNum(y); scale = s;
+      tweens.length = 0; diveId = null; diveTarget = null; panning = false;
+      if(floatTexExt && !forceClassic && (S0/s) > PERT_DEPTH) rebaseAt(center);
+    },
+    probe(cx, cy){
+      const p = touchComplex(cx, cy);
+      return { x: ddToNum(p.x), y: ddToNum(p.y) };
+    }
+  };
+
+  try {
+    initGL();
+  } catch(err){
+    showStatus('The fractal could not start: ' + err.message, 'Startup failed');
+    return;
+  }
+  applyPalette();
+  if(REDUCED){
+    // Kaleidoscope bar: reduced motion starts the app paused
+    paused = true;
+    bPause.setAttribute('aria-pressed', 'true');
+    bPause.setAttribute('aria-label', 'Play animation');
+  }
+  if(floatTexExt && (S0/scale) > PERT_DEPTH) rebaseAt(center);
+  resize();
+  updatePalRow();
+  updateStyleSeg();
+  updateSensesSummary();
+  rafId = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+/* ============================================================
+   Koda — kodalivenow.com: "Field recordings" feature layer
+   ------------------------------------------------------------
+   Loaded AFTER polish-motion.css. Overrides only — never edits
+   main.css or the polish files.
+
+   Contents:
+   1. Hero peek — Koda's transparent cutout peeking from
+      behind the headline (decorative-but-meaningful portrait).
+   2. Field recordings — tap-through Polaroid stack of looping
+      avatar clips. Narrow: one card at a time, real buttons.
+      Wide: the stack fans out. No-JS: static poster stack.
+      Reduced-motion: posters only, no autoplay (JS-gated).
+   ============================================================ */
+
+/* ============================================================
+   1. HERO PEEK
+   Koda's transparent cutout peeking OVER the headline.
+   The portrait is a direct child of the h1, which is
+   position: relative + isolation: isolate — so the h1 is the
+   containing block and a stacking context in every mode
+   (JS, no-JS, reduced-motion), keeping the cutout behind the
+   headline text but above the canvas.
+   Anchored to the h1's top-right: translate 50%/-51% lands the
+   FACE (violet-face centroid ~33% down from the top of
+   koda-peek.webp, measured from the asset) just above the top
+   edge near the right side — never blocked by the text —
+   while the lower body hangs down BEHIND the headline text
+   (z-index -1: the text paints over the body, the face clears
+   the text entirely). The h1 is already width-capped
+   (max-width: 14ch in main.css), so its right edge tracks the
+   text at every viewport: no magic numbers, no per-breakpoint
+   placement rules, no CSS anchor positioning. (An earlier
+   anchor-positioning version fell back to a top-right-corner
+   placement on Safari without anchor support — exactly the
+   detached ornament Ben rejected — so the anchor approach is
+   gone. This works in every browser.)
+   The idle loop keeps the gentle peek-a-boo rhythm. Every
+   keyframe carries the base 50%/-51% (the `translate` property
+   is replaced wholesale while animating), so the peek never
+   drifts off its perch.
+   pointer-events none — pure portrait, never intercepting taps
+   on the chips.
+   ============================================================ */
+.hero h1.display { position: relative; isolation: isolate; }
+.hero-peek {
+  position: absolute;
+  top: 0;
+  /* Horizontal anchor: JS measures the first line's right edge and
+     sets an inline right = (h1.right - firstLine.right) + 12px, so
+     the face sits just inside the text's visual top-right corner at
+     every viewport. The 12px below is the no-JS fallback (the small-
+     screen media query keeps the no-JS portrait on-screen). */
+  right: 12px;
+  /* Face-center math: the face sits 33% down the cutout's height.
+     Shifting the cutout up 51% of its height puts the face center
+     ~18% of the height above the h1's top edge — just above it,
+     chin clearing the text — and shifting right 50% of its width
+     centers the face 6% inside the text's right edge. */
+  translate: 50% -51%;
+  z-index: -1;
+  width: clamp(120px, 17vw, 260px);
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* settle the cutout into the dark scene */
+  filter: drop-shadow(0 18px 42px rgb(0 0 0 / 0.5));
+  /* soft idle loop — a gentle peek-a-boo in place. */
+  animation: hero-peek-idle 7.5s ease-in-out infinite;
+}
+@keyframes hero-peek-idle {
+  0%, 100% { translate: 50% -51%; rotate: 0deg; }
+  18% { translate: calc(50% + 6px) calc(-51% - 9px); rotate: 1.6deg; }
+  42% { translate: calc(50% - 4px) calc(-51% - 3px); rotate: -1.2deg; }
+  63% { translate: calc(50% + 4px) calc(-51% + 7px); rotate: 1deg; }
+  82% { translate: calc(50% - 3px) calc(-51% - 6px); rotate: -1.5deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-peek { animation: none; }
+}
+
+/* Small screens: the eyebrow runs nearly full-width and the gap
+   above the h1 is only ~18px, so Koda's head would land on the
+   eyebrow text. Open the gap (the face peeks between eyebrow and
+   headline) and keep the no-JS fallback portrait on-screen. */
+@media (max-width: 600px) {
+  .hero h1.display { margin-block-start: 4rem; }
+  .hero-peek { right: 64px; }
+}
+
+/* ============================================================
+   2. FIELD RECORDINGS
+   ============================================================ */
+.field .lede { margin-block-end: clamp(2rem, 1.5rem + 2vw, 3rem); }
+
+.polaroid-stack {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: 1fr;
+  max-width: 30rem;
+  margin-inline: auto;
+}
+
+/* Narrow tap-through: the hiding is JS-gated (.js-stack) so
+   no-JS visitors always get the full static poster stack. */
+@media (max-width: 899px) {
+  .js-stack .polaroid { display: none; }
+  .js-stack .polaroid.is-active {
+    display: block;
+    animation: polaroid-in 0.45s var(--ease);
+  }
+}
+
+@keyframes polaroid-in {
+  from { opacity: 0; transform: translateY(14px) rotate(0.6deg); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- The Polaroid card ---- */
+.polaroid {
+  position: relative;
+  background: oklch(95.5% 0.012 95);      /* warm photo white */
+  border-radius: 8px;
+  padding: 0.85rem 0.85rem 0.55rem;
+  /* layered shadow in the site's glass/depth language:
+     tight contact + wide soft drop + whisper of teal ambient */
+  box-shadow:
+    0 2px 8px -2px rgb(0 0 0 / 0.55),
+    0 26px 60px -22px rgb(0 0 0 / 0.7),
+    0 0 44px -14px oklch(81% 0.13 185 / 0.28),
+    inset 0 1px 0 rgb(255 255 255 / 0.7);
+  transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
+}
+
+/* tape strips — the site's teal, at tape translucency */
+.polaroid::before,
+.polaroid::after {
+  content: "";
+  position: absolute;
+  top: -0.72rem;
+  width: 4.4rem;
+  height: 1.35rem;
+  background: oklch(81% 0.13 185 / 0.32);
+  border-inline: 1px dashed rgb(255 255 255 / 0.35);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3);
+  z-index: 2;
+}
+.polaroid::before { left: 7%; transform: rotate(-9deg); }
+.polaroid::after  { right: 7%; transform: rotate(8deg); }
+
+.polaroid video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.polaroid figcaption {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: oklch(30% 0.03 300);              /* dark ink on photo white */
+  text-align: center;
+  padding: 0.8rem 0.4rem 0.45rem;
+}
+
+/* ---- Fan-out on wider displays ---- */
+@media (min-width: 900px) {
+  .polaroid-stack {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 58rem;
+    gap: 2.5rem;
+    align-items: start;
+  }
+  .polaroid:nth-child(odd)  { transform: rotate(-1.8deg); }
+  .polaroid:nth-child(even) { transform: rotate(1.7deg); margin-top: 2.75rem; }
+  .polaroid:hover {
+    transform: rotate(0deg) translateY(-6px);
+    box-shadow:
+      0 4px 12px -2px rgb(0 0 0 / 0.55),
+      0 34px 70px -24px rgb(0 0 0 / 0.75),
+      0 0 54px -12px oklch(81% 0.13 185 / 0.4),
+      inset 0 1px 0 rgb(255 255 255 / 0.7);
+  }
+}
+
+@media (min-width: 1280px) {
+  .polaroid-stack {
+    grid-template-columns: repeat(4, 1fr);
+    max-width: none;
+    gap: 2rem;
+  }
+  .polaroid:nth-child(even) { margin-top: 3.25rem; }
+  .polaroid:nth-child(3) { transform: rotate(-1.3deg); }
+}
+
+/* ---- Tap-through controls (narrow only; JS unhides) ---- */
+.stack-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  margin-block-start: 1.6rem;
+}
+.stack-controls[hidden] { display: none; }
+
+.stack-btn {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: oklch(19% 0.045 305 / 0.85);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  transition: transform 0.25s var(--ease), border-color 0.25s, box-shadow 0.25s;
+}
+.stack-btn:hover {
+  transform: translateY(-2px);
+  border-color: oklch(81% 0.13 185 / 0.6);
+  box-shadow:
+    0 6px 20px -8px oklch(81% 0.13 185 / 0.5),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+.stack-btn:active { transform: translateY(0); }
+.stack-btn svg { width: 1.3rem; height: 1.3rem; }
+
+.stack-count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--muted);
+  min-width: 3.5rem;
+  text-align: center;
+}

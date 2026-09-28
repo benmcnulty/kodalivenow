@@ -1,0 +1,59 @@
+/* ============================================================
+   Koda — kodalivenow.com · TYPOGRAPHY POLISH (workstream 1/5)
+   Pure overrides/additions on top of main.css. Loaded AFTER it;
+   same-or-higher specificity wins by source order.
+   CSS-only: no-JS and prefers-reduced-motion rendering unchanged.
+   Zero color changes here — contrast behavior is main.css as-shipped.
+   ============================================================ */
+
+/* ---- 1. Display tracking (optical sizing) ----
+   Clash Display reads better one step tighter at display sizes.
+   Covers: hero h1, page-hero h1 (about/now), 404 h1. */
+.hero h1,
+.page-hero h1,
+.notfound h1 {
+  letter-spacing: -0.02em; /* was -0.015em via h1 rule */
+}
+
+/* ---- 2. Centered eyebrow optical centering ----
+   letter-spacing leaves trailing space after the last glyph, which
+   nudges centered mono eyebrows (404) slightly left. text-indent
+   of exactly the tracking value re-centers them. */
+.notfound .eyebrow {
+  text-indent: 0.22em;
+}
+
+/* ---- 3. Lede set tighter ----
+   Ledes are 2–3 lines; 1.65lh body leading is airier than the
+   measure calls for. 1.55lh reads more deliberate, still relaxed. */
+.lede {
+  line-height: 1.55;
+}
+
+/* ---- 4. Mono labels: tighter leading when they wrap ----
+   .lab-note .when can run to 2–3 lines on 390px; body 1.65lh
+   leaves the label lines drifting apart. 1.5lh keeps it a label. */
+.lab-note .when {
+  line-height: 1.5;
+}
+
+/* ---- 5. Orphan control in prose blocks ----
+   text-wrap: pretty keeps the last line from collapsing to a
+   lone word in card/status/lab-note/prose paragraphs and in
+   focus-list items that wrap on small screens. (h1/h2/h3 already
+   use balance via the base h1,h2,h3 rule.) */
+.card p,
+.status-card p,
+.lab-note p,
+.prose p,
+.focus-list li {
+  text-wrap: pretty;
+}
+
+/* ---- 6. Prose paragraph rhythm ----
+   1.4rem between paragraphs sits just under one body line (1.65em),
+   which is the classic bookish ratio — keep, and make it explicit
+   so future edits don't drift. */
+.prose p + p {
+  margin-block-start: 1.4rem;
+}
