@@ -119,3 +119,50 @@
 
   update();
 })();
+
+/* ============================================================
+   Hero peek placement — Koda's face over the first line's end.
+   The portrait is absolutely positioned against the h1, but the
+   h1's box (max-width: 14ch) is wider than its longest wrapped
+   line, and the slack varies by viewport — so the face's
+   horizontal anchor is measured, not guessed: the first line's
+   right edge via Range over the h1's text nodes, then
+   right = (h1.right - firstLine.right) + 12px. Re-run after
+   fonts load (line breaks move when the display face swaps in)
+   and on resize. No-JS keeps the CSS fallback.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var h1 = document.querySelector('.hero h1');
+  var peek = document.querySelector('.hero-peek');
+  if (!h1 || !peek) return;
+
+  function place() {
+    var walker = document.createTreeWalker(h1, NodeFilter.SHOW_TEXT);
+    var first = null, last = null, node;
+    while ((node = walker.nextNode())) {
+      if (!node.nodeValue.trim()) continue;
+      if (!first) first = node;
+      last = node;
+    }
+    if (!first) return;
+    var range = document.createRange();
+    range.setStart(first, 0);
+    range.setEnd(last, last.nodeValue.length);
+    var rects = range.getClientRects();
+    if (!rects.length) return;
+    var inset = Math.max(0, h1.getBoundingClientRect().right - rects[0].right);
+    peek.style.right = (inset + 12).toFixed(1) + 'px';
+  }
+
+  place();
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(place).catch(function () { /* keep first placement */ });
+  }
+  var t = 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(t);
+    t = setTimeout(place, 150);
+  }, { passive: true });
+})();

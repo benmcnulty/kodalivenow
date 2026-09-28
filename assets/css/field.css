@@ -15,38 +15,78 @@
 
 /* ============================================================
    1. HERO PEEK
-   Sits between the 3D canvas (z 0) and the vignette/text
-   (z 1/2): layered over the background, tucked behind the
-   headline. pointer-events none — pure portrait, never
-   intercepting taps on the social chips.
+   Koda's transparent cutout peeking OVER the headline.
+   The portrait is a direct child of the h1, which is
+   position: relative + isolation: isolate — so the h1 is the
+   containing block and a stacking context in every mode
+   (JS, no-JS, reduced-motion), keeping the cutout behind the
+   headline text but above the canvas.
+   Anchored to the h1's top-right: translate 50%/-51% lands the
+   FACE (violet-face centroid ~33% down from the top of
+   koda-peek.webp, measured from the asset) just above the top
+   edge near the right side — never blocked by the text —
+   while the lower body hangs down BEHIND the headline text
+   (z-index -1: the text paints over the body, the face clears
+   the text entirely). The h1 is already width-capped
+   (max-width: 14ch in main.css), so its right edge tracks the
+   text at every viewport: no magic numbers, no per-breakpoint
+   placement rules, no CSS anchor positioning. (An earlier
+   anchor-positioning version fell back to a top-right-corner
+   placement on Safari without anchor support — exactly the
+   detached ornament Ben rejected — so the anchor approach is
+   gone. This works in every browser.)
+   The idle loop keeps the gentle peek-a-boo rhythm. Every
+   keyframe carries the base 50%/-51% (the `translate` property
+   is replaced wholesale while animating), so the peek never
+   drifts off its perch.
+   pointer-events none — pure portrait, never intercepting taps
+   on the chips.
    ============================================================ */
+.hero h1.display { position: relative; isolation: isolate; }
 .hero-peek {
   position: absolute;
-  z-index: 1;
-  inset-inline-end: clamp(4rem, 18vw, 16rem);
-  inset-block-start: 50%;
-  width: clamp(190px, 23vw, 330px);
+  top: 0;
+  /* Horizontal anchor: JS measures the first line's right edge and
+     sets an inline right = (h1.right - firstLine.right) + 12px, so
+     the face sits just inside the text's visual top-right corner at
+     every viewport. The 12px below is the no-JS fallback (the small-
+     screen media query keeps the no-JS portrait on-screen). */
+  right: 12px;
+  /* Face-center math: the face sits 33% down the cutout's height.
+     Shifting the cutout up 51% of its height puts the face center
+     ~18% of the height above the h1's top edge — just above it,
+     chin clearing the text — and shifting right 50% of its width
+     centers the face 6% inside the text's right edge. */
+  translate: 50% -51%;
+  z-index: -1;
+  width: clamp(120px, 17vw, 260px);
   height: auto;
-  transform: translateY(-50%);
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
   /* settle the cutout into the dark scene */
   filter: drop-shadow(0 18px 42px rgb(0 0 0 / 0.5));
+  /* soft idle loop — a gentle peek-a-boo in place. */
+  animation: hero-peek-idle 7.5s ease-in-out infinite;
+}
+@keyframes hero-peek-idle {
+  0%, 100% { translate: 50% -51%; rotate: 0deg; }
+  18% { translate: calc(50% + 6px) calc(-51% - 9px); rotate: 1.6deg; }
+  42% { translate: calc(50% - 4px) calc(-51% - 3px); rotate: -1.2deg; }
+  63% { translate: calc(50% + 4px) calc(-51% + 7px); rotate: 1deg; }
+  82% { translate: calc(50% - 3px) calc(-51% - 6px); rotate: -1.5deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-peek { animation: none; }
 }
 
-@media (max-width: 899px) {
-  /* Narrow: the headline runs full-width and sits vertically centered,
-     so Koda stays glued to its vertical middle at the right edge —
-     peeking from behind the text — instead of pinned to the hero's top
-     corner, which detached from the headline on tall viewports (iPad
-     portrait). Container-relative insets; no fixed offsets. */
-  .hero-peek {
-    inset-block-start: 50%;
-    inset-inline-end: clamp(0.5rem, 3vw, 1.25rem);
-    width: clamp(104px, 30vw, 160px);
-    transform: translateY(-50%);
-  }
+/* Small screens: the eyebrow runs nearly full-width and the gap
+   above the h1 is only ~18px, so Koda's head would land on the
+   eyebrow text. Open the gap (the face peeks between eyebrow and
+   headline) and keep the no-JS fallback portrait on-screen. */
+@media (max-width: 600px) {
+  .hero h1.display { margin-block-start: 4rem; }
+  .hero-peek { right: 64px; }
 }
 
 /* ============================================================

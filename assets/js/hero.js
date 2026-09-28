@@ -462,6 +462,16 @@ import * as THREE from './vendor/three.module.min.js';
   }
   resize();
   window.addEventListener('resize', resize, { passive: true });
+  // Refit after full page load AND on any hero box change. The module
+  // can execute before stylesheets/layout settle in some webviews; the
+  // camera would then keep a stale aspect forever (viewport never
+  // resizes, so the listener above never fires) and the blobs render
+  // visibly stretched. A ResizeObserver on the hero kills that race:
+  // any layout shift refits the camera and the draw buffer together.
+  window.addEventListener('load', resize, { passive: true });
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(() => resize()).observe(hero);
+  }
 
   let running = true;
   let firstFrame = true;
